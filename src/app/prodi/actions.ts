@@ -166,6 +166,68 @@ export async function createAssessorAction(input: z.infer<typeof assessorSchema>
   return { ok: true };
 }
 
+const assessorUpdateSchema = z.object({
+  id: z.string().uuid(),
+  fullName: z.string().trim().min(3).max(180),
+  nip: z.string().trim().min(3).max(60),
+  email: z.string().trim().email(),
+  newPassword: z.string().max(100).optional().or(z.literal(""))
+});
+
+export async function updateAssessorAction(input: z.infer<typeof assessorUpdateSchema>) {
+  const parsed = assessorUpdateSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message || "Data asesor tidak valid." };
+  if (parsed.data.newPassword && parsed.data.newPassword.length < 10) return { ok: false, error: "Password baru minimal 10 karakter." };
+
+  const { programId } = await getContext();
+  const admin = createAdminClient();
+  const { data: assessor } = await admin
+    .from("assessors")
+    .select("id,profile_id,nip,email,profile:profiles(user_id)")
+    .eq("id", parsed.data.id)
+    .eq("program_id", programId)
+    .maybeSingle();
+  if (!assessor) return { ok: false, error: "Asesor tidak ditemukan pada Prodi ini." };
+
+  const { data: duplicate } = await admin
+    .from("assessors")
+    .select("id")
+    .eq("program_id", programId)
+    .eq("nip", parsed.data.nip)
+    .neq("id", parsed.data.id)
+    .limit(1);
+  if (duplicate?.length) return { ok: false, error: "NIP sudah digunakan asesor lain." };
+
+  const userId = (assessor.profile as any)?.user_id as string | undefined;
+  if (!userId) return { ok: false, error: "Akun Auth asesor tidak ditemukan." };
+  const email = parsed.data.email.toLowerCase();
+  const authPayload: Record<string, unknown> = {
+    email,
+    email_confirm: true,
+    user_metadata: { full_name: parsed.data.fullName, role: "assessor" }
+  };
+  if (parsed.data.newPassword) authPayload.password = parsed.data.newPassword;
+  const { error: authError } = await admin.auth.admin.updateUserById(userId, authPayload as any);
+  if (authError) return { ok: false, error: authError.message };
+
+  const { error: profileError } = await admin.from("profiles").update({
+    full_name: parsed.data.fullName,
+    email
+  }).eq("id", assessor.profile_id);
+  if (profileError) return { ok: false, error: profileError.message };
+
+  const { error } = await admin.from("assessors").update({
+    full_name: parsed.data.fullName,
+    nip: parsed.data.nip,
+    email
+  }).eq("id", parsed.data.id).eq("program_id", programId);
+  if (error) return { ok: false, error: error.message };
+
+  await logAction("UPDATE_ASSESSOR", "assessor", parsed.data.id, { nip: parsed.data.nip, password_changed: Boolean(parsed.data.newPassword) });
+  revalidatePath("/prodi/asesor");
+  return { ok: true };
+}
+
 export async function setAssessorActiveAction(id: string, active: boolean) {
   const { supabase, programId } = await getContext();
   const { error } = await supabase.from("assessors").update({ active }).eq("id", id).eq("program_id", programId);

@@ -299,3 +299,193 @@ export async function setProdiActiveAction(formData: FormData): Promise<void> {
   });
   revalidatePath("/admin/prodi");
 }
+
+const managedUserSchema = z.object({
+  profileId: z.string().uuid(),
+  fullName: z.string().trim().min(3).max(180),
+  email: z.string().trim().email(),
+  active: z.boolean(),
+  password: z.string().max(100).optional().or(z.literal(""))
+});
+
+export async function updateManagedUserAction(input: z.infer<typeof managedUserSchema>) {
+  const parsed = managedUserSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message || "Data user tidak valid." };
+  if (parsed.data.password && parsed.data.password.length < 10) return { ok: false, error: "Password baru minimal 10 karakter." };
+
+  const { admin, userId } = await getAdminContext();
+  const { data: target } = await admin.from("profiles").select("id,user_id,role,program_id,full_name,email,active").eq("id", parsed.data.profileId).maybeSingle();
+  if (!target) return { ok: false, error: "User tidak ditemukan." };
+  if (!parsed.data.active && target.user_id === userId) return { ok: false, error: "Admin tidak dapat menonaktifkan akun yang sedang digunakan sendiri." };
+
+  const email = parsed.data.email.toLowerCase();
+  const authPayload: Record<string, unknown> = {
+    email,
+    email_confirm: true,
+    user_metadata: { full_name: parsed.data.fullName, role: target.role }
+  };
+  if (parsed.data.password) authPayload.password = parsed.data.password;
+  const { error: authError } = await admin.auth.admin.updateUserById(target.user_id, authPayload as any);
+  if (authError) return { ok: false, error: authError.message };
+
+  const { error: profileError } = await admin.from("profiles").update({
+    full_name: parsed.data.fullName,
+    email,
+    active: parsed.data.active
+  }).eq("id", target.id);
+  if (profileError) return { ok: false, error: profileError.message };
+
+  if (target.role === "participant") {
+    const { error } = await admin.from("participants").update({ full_name: parsed.data.fullName, email }).eq("profile_id", target.id);
+    if (error) return { ok: false, error: error.message };
+  } else if (target.role === "assessor") {
+    const { error } = await admin.from("assessors").update({ full_name: parsed.data.fullName, email, active: parsed.data.active }).eq("profile_id", target.id);
+    if (error) return { ok: false, error: error.message };
+  }
+
+  await audit(userId, "ADMIN_UPDATE_USER", "profile", target.id, target.program_id, {
+    role: target.role,
+    email_changed: email !== String(target.email || "").toLowerCase(),
+    password_changed: Boolean(parsed.data.password),
+    active: parsed.data.active
+  });
+  revalidatePath("/admin/pengguna");
+  revalidatePath("/admin/mahasiswa");
+  revalidatePath("/admin/prodi");
+  return { ok: true };
+}
+
+export type ImportParticipantInput = {
+  rowNumber: number;
+  registrationNo: string;
+  participantNo: string;
+  fullName: string;
+  email: string;
+  programName: string;
+  phone?: string;
+  birthDate?: string;
+  gender?: string;
+  previousInstitution?: string;
+  previousProgram?: string;
+  graduationYear?: number | null;
+  raw: Record<string, unknown>;
+};
+
+export type ImportParticipantResult = {
+  rowNumber: number;
+  registrationNo: string;
+  fullName: string;
+  status: "created" | "skipped" | "error";
+  message: string;
+  temporaryPassword?: string;
+};
+
+function canonicalImportDate(value?: string) {
+  const input = String(value || "").trim();
+  if (!input) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(input)) return input;
+  const dmy = input.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
+  if (dmy) return `${dmy[3]}-${dmy[2].padStart(2, "0")}-${dmy[1].padStart(2, "0")}`;
+  const parsed = new Date(input);
+  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString().slice(0, 10);
+}
+
+export async function importParticipantsBatchAction(rows: ImportParticipantInput[]): Promise<{ ok: boolean; error?: string; results?: ImportParticipantResult[] }> {
+  if (!Array.isArray(rows) || rows.length < 1 || rows.length > 20) return { ok: false, error: "Batch import harus berisi 1–20 baris." };
+  const { admin, userId } = await getAdminContext();
+  const { data: programs } = await admin.from("programs").select("id,name").eq("active", true);
+  const programMap = new Map((programs || []).map((p: any) => [String(p.name).trim().toLowerCase(), p]));
+  const results: ImportParticipantResult[] = [];
+
+  for (const row of rows) {
+    const registrationNo = String(row.registrationNo || "").trim();
+    const participantNo = String(row.participantNo || "").trim();
+    const fullName = String(row.fullName || "").trim();
+    const email = String(row.email || "").trim().toLowerCase();
+    const programName = String(row.programName || "").trim();
+    const base = { rowNumber: Number(row.rowNumber || 0), registrationNo, fullName };
+
+    if (!registrationNo || !participantNo || !fullName || !email || !programName) {
+      results.push({ ...base, status: "error", message: "Kolom nomor_pendaftar, nomor_peserta, nama_lengkap, email, dan pilihan_1 wajib diisi." });
+      continue;
+    }
+    if (!z.string().email().safeParse(email).success) {
+      results.push({ ...base, status: "error", message: "Format email tidak valid." });
+      continue;
+    }
+    const program = programMap.get(programName.toLowerCase());
+    if (!program) {
+      results.push({ ...base, status: "error", message: `Program Studi '${programName}' tidak ditemukan pada master programs.` });
+      continue;
+    }
+
+    const [{ data: byReg }, { data: byNo }] = await Promise.all([
+      admin.from("participants").select("id").eq("registration_no", registrationNo).maybeSingle(),
+      admin.from("participants").select("id").eq("participant_no", participantNo).maybeSingle()
+    ]);
+    if (byReg || byNo) {
+      results.push({ ...base, status: "skipped", message: "Sudah ada di database (nomor pendaftaran/peserta sama)." });
+      continue;
+    }
+
+    const temporaryPassword = makeTemporaryPassword();
+    const { data: authData, error: authError } = await admin.auth.admin.createUser({
+      email,
+      password: temporaryPassword,
+      email_confirm: true,
+      user_metadata: { full_name: fullName, role: "participant" }
+    });
+    if (authError || !authData.user) {
+      results.push({ ...base, status: "error", message: authError?.message || "Gagal membuat akun Auth." });
+      continue;
+    }
+
+    const { data: profile, error: profileError } = await admin.from("profiles").insert({
+      user_id: authData.user.id,
+      role: "participant",
+      full_name: fullName,
+      email,
+      program_id: program.id,
+      active: true
+    }).select("id").single();
+    if (profileError || !profile) {
+      await admin.auth.admin.deleteUser(authData.user.id);
+      results.push({ ...base, status: "error", message: profileError?.message || "Gagal membuat profil." });
+      continue;
+    }
+
+    const { data: participant, error: participantError } = await admin.from("participants").insert({
+      profile_id: profile.id,
+      program_id: program.id,
+      participant_no: participantNo,
+      registration_no: registrationNo,
+      full_name: fullName,
+      birth_date: canonicalImportDate(row.birthDate),
+      gender: row.gender ? String(row.gender).trim() : null,
+      email,
+      phone: row.phone ? String(row.phone).trim() : null,
+      previous_institution: row.previousInstitution ? String(row.previousInstitution).trim() : null,
+      previous_program: row.previousProgram ? String(row.previousProgram).trim() : null,
+      graduation_year: row.graduationYear || null,
+      legacy_payload: row.raw || {}
+    }).select("id").single();
+
+    if (participantError || !participant) {
+      await admin.auth.admin.deleteUser(authData.user.id);
+      results.push({ ...base, status: "error", message: participantError?.message || "Gagal membuat data peserta." });
+      continue;
+    }
+
+    await audit(userId, "ADMIN_IMPORT_PARTICIPANT", "participant", participant.id, program.id, {
+      registration_no: registrationNo,
+      participant_no: participantNo,
+      source_row: row.rowNumber
+    });
+    results.push({ ...base, status: "created", message: "Berhasil dibuat.", temporaryPassword });
+  }
+
+  revalidatePath("/admin");
+  revalidatePath("/admin/mahasiswa");
+  revalidatePath("/admin/pengguna");
+  return { ok: true, results };
+}

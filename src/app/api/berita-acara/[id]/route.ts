@@ -16,24 +16,38 @@ function wrapText(text: string, max = 72) {
   return lines.length ? lines : [""];
 }
 
+function average(values: number[]) {
+  return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
+}
+
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const profile = await getCurrentProfile();
   if (!profile) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await params;
   const supabase = await createClient();
-  const { data: app } = await supabase.from("applications").select("id,status,finalized_at,program:programs(name,degree),participant:participants(participant_no,full_name,birth_place,birth_date,education_level,previous_institution,previous_program,graduation_year)").eq("id", id).maybeSingle();
+  const { data: app } = await supabase.from("applications").select("id,status,finalized_at,program_id,program:programs(name,degree),participant:participants(participant_no,full_name,birth_place,birth_date,education_level,previous_institution,previous_program,graduation_year)").eq("id", id).maybeSingle();
   if (!app) return NextResponse.json({ error: "Data tidak ditemukan." }, { status: 404 });
   if (app.status !== "FINAL") return NextResponse.json({ error: "Yudisium belum final." }, { status: 409 });
 
-  const [{ data: decisions }, { data: assignment }, { data: settings }] = await Promise.all([
-    supabase.from("yudisium_decisions").select("result,course_claim:course_claims(course:courses(code,name,credits))").eq("application_id", id).eq("status", "FINAL"),
-    supabase.from("assessor_assignments").select("assessor1:assessors!assessor_assignments_assessor1_id_fkey(full_name,nip),assessor2:assessors!assessor_assignments_assessor2_id_fkey(full_name,nip)").eq("application_id", id).maybeSingle(),
-    supabase.from("program_settings").select("head_name,head_nip").eq("program_id", profile.program_id!).maybeSingle()
+  const [{ data: decisions }, { data: assignment }, { data: settings }, { data: scores }] = await Promise.all([
+    supabase.from("yudisium_decisions").select("result,course_claim_id,course_claim:course_claims(course:courses(code,name,credits))").eq("application_id", id).eq("status", "FINAL"),
+    supabase.from("assessor_assignments").select("assessor1_id,assessor2_id,assessor1:assessors!assessor_assignments_assessor1_id_fkey(full_name,nip),assessor2:assessors!assessor_assignments_assessor2_id_fkey(full_name,nip)").eq("application_id", id).maybeSingle(),
+    supabase.from("program_settings").select("head_name,head_nip").eq("program_id", app.program_id).maybeSingle(),
+    supabase.from("assessor_scores").select("assessor_id,course_claim_id,score").eq("application_id", id)
   ]);
 
   const participant: any = app.participant;
   const program: any = app.program;
   const totalSks = (decisions || []).reduce((sum, row: any) => sum + (row.result === "YA" ? Number(row.course_claim?.course?.credits || 0) : 0), 0);
+  const assessorIds = [assignment?.assessor1_id, assignment?.assessor2_id].filter(Boolean) as string[];
+
+  function recognitionScore(claimId: string) {
+    const assessorMeans = assessorIds.map((assessorId) => average((scores || [])
+      .filter((row: any) => row.assessor_id === assessorId && row.course_claim_id === claimId && row.score !== null)
+      .map((row: any) => Number(row.score))
+    )).filter((value): value is number => value !== null);
+    return assessorMeans.length === 2 ? average(assessorMeans) : null;
+  }
 
   const pdf = await PDFDocument.create();
   pdf.setTitle(`Berita Acara RPL - ${participant?.full_name || "Peserta"}`);
@@ -82,26 +96,29 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   }
   y -= 10;
   text("HASIL REKOGNISI", 11, bold, green);
+  text("Nilai hasil rekognisi = rerata nilai Asesor 1 dan Asesor 2 pada mata kuliah tersebut.", 8, regular, gray);
   y -= 2;
 
   const rows = decisions || [];
   let no = 1;
   for (const row of rows as any[]) {
-    addPageIfNeeded(70);
+    addPageIfNeeded(76);
     const course = row.course_claim?.course;
-    page.drawRectangle({ x: left, y: y - 42, width: 491, height: 51, borderColor: rgb(.86,.90,.89), borderWidth: 1, color: rgb(.985,.993,.99) });
+    const finalScore = recognitionScore(row.course_claim_id);
+    page.drawRectangle({ x: left, y: y - 48, width: 491, height: 57, borderColor: rgb(.86,.90,.89), borderWidth: 1, color: rgb(.985,.993,.99) });
     page.drawText(String(no), { x: left + 10, y: y - 10, size: 9, font: bold, color: gray });
     page.drawText(course?.code || "-", { x: left + 35, y: y - 10, size: 9, font: bold, color: green });
-    const nameLines = wrapText(course?.name || "-", 48).slice(0, 2);
+    const nameLines = wrapText(course?.name || "-", 43).slice(0, 2);
     nameLines.forEach((line, idx) => page.drawText(line, { x: left + 100, y: y - 10 - idx * 13, size: 9, font: idx === 0 ? bold : regular, color: dark }));
-    page.drawText(`${course?.credits || 0} SKS`, { x: left + 380, y: y - 10, size: 9, font: regular, color: gray });
-    page.drawText(row.result === "YA" ? "DIREKOGNISI" : "TIDAK", { x: left + 425, y: y - 10, size: 8, font: bold, color: row.result === "YA" ? green : rgb(.69,.13,.09) });
-    y -= 61;
+    page.drawText(`${course?.credits || 0} SKS`, { x: left + 355, y: y - 10, size: 8, font: regular, color: gray });
+    page.drawText(row.result === "YA" ? "DIREKOGNISI" : "TIDAK", { x: left + 405, y: y - 10, size: 7.5, font: bold, color: row.result === "YA" ? green : rgb(.69,.13,.09) });
+    page.drawText(`Nilai: ${finalScore === null ? "-" : finalScore.toFixed(2)}`, { x: left + 355, y: y - 30, size: 8.5, font: bold, color: row.result === "YA" ? green : gray });
+    y -= 67;
     no++;
   }
 
   y -= 4;
-  addPageIfNeeded(100);
+  addPageIfNeeded(110);
   text(`Total SKS direkognisi: ${totalSks} SKS`, 11, bold, green);
   text(`Tanggal finalisasi: ${app.finalized_at ? new Date(app.finalized_at).toLocaleString("id-ID") : "-"}`, 9, regular, gray);
   y -= 12;
