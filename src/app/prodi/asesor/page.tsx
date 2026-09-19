@@ -13,11 +13,15 @@ export default async function AssessorsPage() {
     supabase.from("applications").select("id,status,participant:participants(full_name,participant_no)").eq("program_id", programId).in("status", ["SUBMITTED","ASSESSMENT","YUDISIUM"]).order("updated_at", { ascending: false })
   ]);
   const appIds = (applications || []).map((a) => a.id);
-  let assignments: any[] = [];
+  let assignments: any[] = [], payments: any[] = [];
   if (appIds.length) {
-    const { data } = await supabase.from("assessor_assignments").select("application_id,assessor1_id,assessor2_id").in("application_id", appIds);
-    assignments = data || [];
+    const [assignmentResult, paymentResult] = await Promise.all([
+      supabase.from("assessor_assignments").select("application_id,assessor1_id,assessor2_id").in("application_id", appIds),
+      supabase.from("payments").select("application_id,status").in("application_id", appIds)
+    ]);
+    assignments = assignmentResult.data || [];
+    payments = paymentResult.data || [];
   }
-  const rows = (applications || []).map((a: any) => ({ ...a, assignment: assignments.find((x) => x.application_id === a.id) || null }));
+  const rows = (applications || []).map((a: any) => ({ ...a, assignment: assignments.find((x) => x.application_id === a.id) || null, paymentStatus: payments.find((x) => x.application_id === a.id)?.status || null }));
   return <AssessorManager assessors={(assessors || []) as any[]} applications={rows as any[]} />;
 }

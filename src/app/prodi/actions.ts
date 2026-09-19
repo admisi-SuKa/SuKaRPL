@@ -186,12 +186,21 @@ export async function saveAssignmentAction(applicationId: string, assessor1Id: s
   const { data: assessors } = await supabase.from("assessors").select("id").eq("program_id", programId).eq("active", true).in("id", [assessor1Id, assessor2Id]);
   if (!assessors || assessors.length !== 2) return { ok: false, error: "Asesor tidak valid atau tidak aktif." };
 
-  const { error } = await supabase.from("assessor_assignments").upsert({ application_id: applicationId, assessor1_id: assessor1Id, assessor2_id: assessor2Id }, { onConflict: "application_id" });
-  if (error) return { ok: false, error: error.message };
+  const { data: existingAssignment } = await supabase.from("assessor_assignments").select("id").eq("application_id", applicationId).maybeSingle();
+  if (!existingAssignment) {
+    const { data: payment } = await supabase.from("payments").select("status").eq("application_id", applicationId).maybeSingle();
+    if (payment?.status !== "VERIFIED") return { ok: false, error: "Pembayaran belum terverifikasi. Verifikasi bukti pembayaran sebelum melakukan plotting asesor." };
+  }
+
+  const assignmentResult = existingAssignment
+    ? await supabase.from("assessor_assignments").update({ assessor1_id: assessor1Id, assessor2_id: assessor2Id }).eq("id", existingAssignment.id)
+    : await supabase.from("assessor_assignments").insert({ application_id: applicationId, assessor1_id: assessor1Id, assessor2_id: assessor2Id });
+  if (assignmentResult.error) return { ok: false, error: assignmentResult.error.message };
   if (application.status === "SUBMITTED") await supabase.from("applications").update({ status: "ASSESSMENT" }).eq("id", applicationId);
   await logAction("ASSIGN_ASSESSORS", "application", applicationId, { assessor1Id, assessor2Id });
   revalidatePath("/prodi");
   revalidatePath("/prodi/asesor");
+  revalidatePath("/prodi/pembayaran");
   revalidatePath(`/prodi/peserta/${applicationId}`);
   return { ok: true };
 }
@@ -292,4 +301,56 @@ export async function reopenYudisiumAction(applicationId: string) {
   revalidatePath("/prodi/yudisium");
   revalidatePath(`/prodi/yudisium/${applicationId}`);
   return { ok: true };
+}
+
+export async function verifyPaymentAction(paymentId: string): Promise<void> {
+  const { profile, supabase, programId } = await getContext();
+  const { data: payment } = await supabase
+    .from("payments")
+    .select("id,application_id,status,application:applications!inner(program_id)")
+    .eq("id", paymentId)
+    .maybeSingle();
+  if (!payment || (payment.application as any)?.program_id !== programId) throw new Error("Bukti pembayaran tidak ditemukan.");
+  if (payment.status !== "SUBMITTED") throw new Error("Bukti pembayaran ini tidak sedang menunggu verifikasi.");
+
+  const { error } = await supabase.from("payments").update({
+    status: "VERIFIED",
+    verification_note: null,
+    verified_by: profile.id,
+    verified_at: new Date().toISOString()
+  }).eq("id", paymentId).eq("status", "SUBMITTED");
+  if (error) throw new Error(error.message);
+
+  await logAction("VERIFY_PAYMENT", "payment", paymentId, { applicationId: payment.application_id });
+  revalidatePath("/prodi");
+  revalidatePath("/prodi/pembayaran");
+  revalidatePath("/prodi/asesor");
+  revalidatePath(`/prodi/peserta/${payment.application_id}`);
+}
+
+export async function rejectPaymentAction(paymentId: string, formData: FormData): Promise<void> {
+  const note = String(formData.get("verificationNote") || "").trim();
+  if (!note) throw new Error("Catatan penolakan wajib diisi.");
+  const { profile, supabase, programId } = await getContext();
+  const { data: payment } = await supabase
+    .from("payments")
+    .select("id,application_id,status,application:applications!inner(program_id)")
+    .eq("id", paymentId)
+    .maybeSingle();
+  if (!payment || (payment.application as any)?.program_id !== programId) throw new Error("Bukti pembayaran tidak ditemukan.");
+  if (payment.status !== "SUBMITTED") throw new Error("Bukti pembayaran ini tidak sedang menunggu verifikasi.");
+
+  const { error } = await supabase.from("payments").update({
+    status: "REJECTED",
+    verification_note: note,
+    verified_by: profile.id,
+    verified_at: new Date().toISOString()
+  }).eq("id", paymentId).eq("status", "SUBMITTED");
+  if (error) throw new Error(error.message);
+
+  await logAction("REJECT_PAYMENT", "payment", paymentId, { applicationId: payment.application_id, note });
+  revalidatePath("/prodi");
+  revalidatePath("/prodi/pembayaran");
+  revalidatePath("/prodi/asesor");
+  revalidatePath(`/prodi/peserta/${payment.application_id}`);
 }

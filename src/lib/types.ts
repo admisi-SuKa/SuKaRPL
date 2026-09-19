@@ -2,6 +2,7 @@ export type UserRole = "participant" | "prodi" | "assessor" | "admin";
 export type ApplicationStatus = "DRAFT" | "SUBMITTED" | "RETURNED" | "ASSESSMENT" | "YUDISIUM" | "FINAL";
 export type AssessmentType = "OBE" | "NON_OBE";
 export type YudisiumResult = "YA" | "TIDAK";
+export type PaymentStatus = "SUBMITTED" | "VERIFIED" | "REJECTED";
 
 export interface CurrentProfile {
   id: string;

@@ -15,11 +15,14 @@ export default async function ParticipantDashboard() {
   const { data: application } = participant ? await supabase.from("applications").select("*").eq("participant_id", participant.id).maybeSingle() : { data: null };
 
   let claimCount = 0, evidenceCount = 0, coveredCount = 0;
+  let payment: { status: string } | null = null;
   if (application) {
     const { data: claims } = await supabase.from("course_claims").select("id").eq("application_id", application.id);
     const { data: evidences } = await supabase.from("evidences").select("id").eq("application_id", application.id);
     claimCount = claims?.length || 0;
     evidenceCount = evidences?.length || 0;
+    const { data: paymentRow } = await supabase.from("payments").select("status").eq("application_id", application.id).maybeSingle();
+    payment = paymentRow;
     if (claims?.length) {
       const { data: links } = await supabase.from("claim_evidences").select("course_claim_id").in("course_claim_id", claims.map((c) => c.id));
       coveredCount = new Set((links || []).map((x) => x.course_claim_id)).size;
@@ -38,10 +41,11 @@ export default async function ParticipantDashboard() {
         </div>
       </section>
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         <StatCard icon="bi-journal-check" label="MK diajukan" value={claimCount} />
-        <StatCard icon="bi-link-45deg" label="Bukti" value={evidenceCount} />
+        <StatCard icon="bi-link-45deg" label="Bukti RPL" value={evidenceCount} />
         <StatCard icon="bi-check2-circle" label="MK dengan bukti" value={`${coveredCount}/${claimCount}`} />
+        <StatCard icon="bi-credit-card" label="Pembayaran" value={payment?.status === "VERIFIED" ? "Terverifikasi" : payment?.status === "SUBMITTED" ? "Menunggu" : payment?.status === "REJECTED" ? "Ditolak" : "Belum"} />
         <StatCard icon="bi-calendar3" label="Pengajuan" value={application?.submitted_at ? formatDate(application.submitted_at) : "Belum"} />
       </div>
 
@@ -52,17 +56,25 @@ export default async function ParticipantDashboard() {
         </div>
       )}
 
-      <section className="rpl-card p-5">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="text-lg font-black text-[var(--rpl-green-950)]">Pengajuan Rekognisi</h2>
-            <p className="mt-1 text-sm text-[var(--muted)]">Pilih mata kuliah dan hubungkan setiap mata kuliah dengan bukti berbentuk link.</p>
+      <section className="grid gap-4 lg:grid-cols-2">
+        <div className="rpl-card p-5">
+          <div className="flex h-full flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-lg font-black text-[var(--rpl-green-950)]">Pengajuan Rekognisi</h2>
+              <p className="mt-1 text-sm text-[var(--muted)]">Pilih mata kuliah, checklist CPMK, lalu hubungkan bukti berbentuk link.</p>
+            </div>
+            {application ? (
+              <Link className="rpl-btn rpl-btn-primary" href="/mahasiswa/pengajuan"><i className="bi bi-pencil-square" /> {application.status === "DRAFT" || application.status === "RETURNED" ? "Lanjutkan" : "Lihat"}</Link>
+            ) : (
+              <form action={createApplicationAction}><button className="rpl-btn rpl-btn-primary" type="submit"><i className="bi bi-plus-circle" /> Mulai</button></form>
+            )}
           </div>
-          {application ? (
-            <Link className="rpl-btn rpl-btn-primary" href="/mahasiswa/pengajuan"><i className="bi bi-pencil-square" /> {application.status === "DRAFT" || application.status === "RETURNED" ? "Lanjutkan Pengajuan" : "Lihat Pengajuan"}</Link>
-          ) : (
-            <form action={createApplicationAction}><button className="rpl-btn rpl-btn-primary" type="submit"><i className="bi bi-plus-circle" /> Mulai Pengajuan</button></form>
-          )}
+        </div>
+        <div className="rpl-card p-5">
+          <div className="flex h-full flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div><h2 className="text-lg font-black text-[var(--rpl-green-950)]">Pembayaran RPL</h2><p className="mt-1 text-sm text-[var(--muted)]">Kirim bukti pembayaran dalam bentuk link untuk diverifikasi Prodi.</p></div>
+            <Link className="rpl-btn rpl-btn-secondary" href="/mahasiswa/pembayaran"><i className="bi bi-credit-card" /> Form Pembayaran</Link>
+          </div>
         </div>
       </section>
 

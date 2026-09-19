@@ -12,11 +12,12 @@ export default async function ProdiParticipantDetail({ params }: { params: Promi
   const { data: application } = await supabase.from("applications").select("*,participant:participants(*)").eq("id", id).eq("program_id", profile.program_id!).maybeSingle();
   if (!application) notFound();
 
-  const [{ data: claims }, { data: evidences }, { data: assignment }, { data: assessors }] = await Promise.all([
+  const [{ data: claims }, { data: evidences }, { data: assignment }, { data: assessors }, { data: payment }] = await Promise.all([
     supabase.from("course_claims").select("id,course_id,course:courses(code,name,credits,assessment_type)").eq("application_id", id),
     supabase.from("evidences").select("id,evidence_type_id,title,url,description,type:evidence_types(title)").eq("application_id", id),
     supabase.from("assessor_assignments").select("assessor1_id,assessor2_id,assessor1:assessors!assessor_assignments_assessor1_id_fkey(full_name,nip),assessor2:assessors!assessor_assignments_assessor2_id_fkey(full_name,nip)").eq("application_id", id).maybeSingle(),
-    supabase.from("assessors").select("id,full_name,nip").eq("program_id", profile.program_id!).eq("active", true).order("full_name")
+    supabase.from("assessors").select("id,full_name,nip").eq("program_id", profile.program_id!).eq("active", true).order("full_name"),
+    supabase.from("payments").select("id,status,payment_date,payment_method,payer_name,proof_url,student_note,verification_note,submitted_at").eq("application_id", id).maybeSingle()
   ]);
   const claimIds = (claims || []).map((c) => c.id);
   let selectedCpmks: any[] = [];
@@ -41,7 +42,16 @@ export default async function ProdiParticipantDetail({ params }: { params: Promi
         {application.return_note && application.status === "RETURNED" && <div className="mt-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-900"><strong>Catatan revisi:</strong> {application.return_note}</div>}
       </section>
 
-      <ParticipantControls applicationId={id} status={application.status} assessors={(assessors || []) as any[]} assignment={assignment ? { assessor1_id: assignment.assessor1_id, assessor2_id: assignment.assessor2_id } : null} />
+      <section className="rpl-card p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div><h2 className="font-black text-[var(--rpl-green-950)]">Pembayaran</h2><p className="mt-1 text-xs text-[var(--muted)]">Bukti pembayaran mahasiswa dalam bentuk link.</p></div>
+          <span className={`rpl-pill ${payment?.status === "VERIFIED" ? "bg-emerald-50 text-emerald-700" : payment?.status === "SUBMITTED" ? "bg-blue-50 text-blue-700" : payment?.status === "REJECTED" ? "bg-red-50 text-red-700" : "bg-amber-50 text-amber-700"}`}>{payment?.status === "VERIFIED" ? "Terverifikasi" : payment?.status === "SUBMITTED" ? "Menunggu Verifikasi" : payment?.status === "REJECTED" ? "Ditolak" : "Belum Mengirim"}</span>
+        </div>
+        {payment ? <div className="mt-4 grid gap-3 sm:grid-cols-3"><div><div className="text-[10px] font-black uppercase text-[var(--muted)]">Tanggal Bayar</div><div className="mt-1 text-sm font-bold">{payment.payment_date || "-"}</div></div><div><div className="text-[10px] font-black uppercase text-[var(--muted)]">Pengirim</div><div className="mt-1 text-sm font-bold">{payment.payer_name || "-"}</div></div><div><a className="rpl-btn rpl-btn-secondary text-xs" href={payment.proof_url} target="_blank" rel="noopener noreferrer"><i className="bi bi-box-arrow-up-right" /> Buka Bukti Bayar</a></div></div> : <div className="mt-4 text-sm text-[var(--muted)]">Mahasiswa belum mengirim bukti pembayaran.</div>}
+        {payment?.verification_note && <div className="mt-3 rounded-xl bg-red-50 p-3 text-sm text-red-800"><strong>Catatan:</strong> {payment.verification_note}</div>}
+      </section>
+
+      <ParticipantControls applicationId={id} status={application.status} paymentStatus={payment?.status || null} assessors={(assessors || []) as any[]} assignment={assignment ? { assessor1_id: assignment.assessor1_id, assessor2_id: assignment.assessor2_id } : null} />
 
       <section className="rpl-card p-5">
         <h2 className="text-lg font-black text-[var(--rpl-green-950)]">Mata Kuliah Diajukan</h2>
