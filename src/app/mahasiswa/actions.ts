@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -22,15 +23,24 @@ async function audit(action: string, entityType: string, entityId?: string, meta
   await supabase.from("audit_logs").insert({ actor_user_id: userId, program_id: profile.program_id, action, entity_type: entityType, entity_id: entityId || null, metadata });
 }
 
-export async function createApplicationAction() {
+export async function createApplicationAction(): Promise<void> {
   const { participant, application, supabase } = await getContext();
-  if (application) return { ok: true, id: application.id };
-  const { data, error } = await supabase.from("applications").insert({ participant_id: participant.id, program_id: participant.program_id, status: "DRAFT" }).select().single();
-  if (error) return { ok: false, error: error.message };
+  if (application) redirect("/mahasiswa/pengajuan");
+
+  const { data, error } = await supabase
+    .from("applications")
+    .insert({ participant_id: participant.id, program_id: participant.program_id, status: "DRAFT" })
+    .select()
+    .single();
+
+  if (error || !data) {
+    throw new Error(error?.message || "Gagal membuat pengajuan.");
+  }
+
   await audit("CREATE_APPLICATION", "application", data.id);
   revalidatePath("/mahasiswa");
   revalidatePath("/mahasiswa/pengajuan");
-  return { ok: true, id: data.id };
+  redirect("/mahasiswa/pengajuan");
 }
 
 export async function toggleCourseClaimAction(courseId: string, selected: boolean) {
