@@ -1,0 +1,2 @@
+import Link from "next/link";
+export default function NotFound() { return <main className="min-h-screen grid place-items-center p-5"><div className="rpl-card max-w-md p-7 text-center"><div className="text-6xl font-black text-[var(--rpl-green-800)]">404</div><h1 className="mt-3 text-xl font-black">Halaman tidak ditemukan</h1><Link className="rpl-btn rpl-btn-primary mt-5" href="/"><i className="bi bi-house-door" /> Kembali</Link></div></main>; }
