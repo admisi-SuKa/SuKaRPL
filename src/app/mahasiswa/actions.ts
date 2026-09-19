@@ -258,3 +258,64 @@ export async function submitRecognitionResponseAction(response: "SETUJU" | "TIDA
   revalidatePath("/mahasiswa/hasil");
   return { ok: true };
 }
+
+// -----------------------------------------------------------------------------
+// V5: penyimpanan draft RPL secara batch.
+// Checkbox/input di browser hanya mengubah state lokal. Database baru ditulis
+// ketika peserta menekan Simpan Draft atau Kirim Pengajuan.
+// -----------------------------------------------------------------------------
+
+const supportingEvidenceDraftSchema = z.object({
+  url: z.string().trim().url("Link bukti tidak valid.").refine((v) => /^https?:\/\//i.test(v), "Link bukti harus menggunakan http atau https."),
+  description: z.string().trim().max(1500, "Deskripsi bukti maksimal 1500 karakter.").optional().default("")
+});
+
+const cpmkDraftSchema = z.object({
+  cpmkId: z.string().uuid(),
+  evidences: z.array(supportingEvidenceDraftSchema).max(30)
+});
+
+const courseDraftSchema = z.object({
+  courseId: z.string().uuid(),
+  cpmks: z.array(cpmkDraftSchema).max(100).default([]),
+  evidences: z.array(supportingEvidenceDraftSchema).max(30).default([])
+});
+
+const rplBatchDraftSchema = z.object({
+  courses: z.array(courseDraftSchema).max(200)
+});
+
+export type RplBatchDraftInput = z.infer<typeof rplBatchDraftSchema>;
+
+async function persistRplBatchDraft(input: RplBatchDraftInput, submit: boolean) {
+  const parsed = rplBatchDraftSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message || "Data pengajuan tidak valid." };
+  }
+
+  const { application, supabase } = await getContext();
+  if (!application) return { ok: false, error: "Pengajuan RPL belum dibuat." };
+  if (!( ["DRAFT", "RETURNED"] as string[]).includes(application.status)) {
+    return { ok: false, error: "Pengajuan sudah dikunci dan tidak dapat diubah." };
+  }
+
+  const { data, error } = await supabase.rpc("save_participant_rpl_draft", {
+    p_payload: parsed.data,
+    p_submit: submit
+  });
+
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/mahasiswa");
+  revalidatePath("/mahasiswa/pengajuan");
+  revalidatePath("/prodi");
+  return { ok: true, data };
+}
+
+export async function saveRplDraftAction(input: RplBatchDraftInput) {
+  return persistRplBatchDraft(input, false);
+}
+
+export async function submitRplDraftAction(input: RplBatchDraftInput) {
+  return persistRplBatchDraft(input, true);
+}

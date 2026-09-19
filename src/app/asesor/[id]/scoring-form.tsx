@@ -4,8 +4,8 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { saveScoresAction } from "../actions";
 
-type Evidence = { id: string; title: string; url: string; description?: string | null; type: string };
-type Cpmk = { id: string; code: string; description: string };
+type Evidence = { id: string; url: string; description?: string | null };
+type Cpmk = { id: string; code: string; description: string; evidences: Evidence[] };
 type Existing = { scoreScope: string; cpmkId: string | null; v: boolean; a: boolean; t: boolean; m: boolean; score: number | null; note: string };
 type Claim = { id: string; code: string; name: string; credits: number; assessmentType: "OBE" | "NON_OBE"; cpmks: Cpmk[]; evidences: Evidence[]; existing: Existing[] };
 type Entry = { claimId: string; cpmkId: string | null; v: boolean; a: boolean; t: boolean; m: boolean; score: string; note: string };
@@ -33,14 +33,19 @@ export function ScoringForm({ applicationId, status, claims }: { applicationId: 
   }, [claims]);
   const [entries, setEntries] = useState<Record<string, Entry>>(initial);
 
-  function update(key: string, patch: Partial<Entry>) { setEntries((old) => ({ ...old, [key]: { ...old[key], ...patch } })); }
+  function update(key: string, patch: Partial<Entry>) {
+    setEntries((old) => ({ ...old, [key]: { ...old[key], ...patch } }));
+  }
 
   function save() {
     setMessage(null);
-    const payload = Object.values(entries);
-    if (payload.some((e) => e.score === "" || Number(e.score) < 0 || Number(e.score) > 100)) { setMessage({ ok: false, text: "Semua nilai wajib diisi antara 0 sampai 100." }); return; }
+    const payload = Object.values(entries) as Entry[];
+    if (payload.some((entry) => entry.score === "" || Number(entry.score) < 0 || Number(entry.score) > 100)) {
+      setMessage({ ok: false, text: "Semua nilai wajib diisi antara 0 sampai 100." });
+      return;
+    }
     startTransition(async () => {
-      const result = await saveScoresAction(applicationId, payload.map((e) => ({ ...e, score: Number(e.score) })));
+      const result = await saveScoresAction(applicationId, payload.map((entry) => ({ ...entry, score: Number(entry.score) })));
       setMessage(result.ok ? { ok: true, text: "Seluruh nilai berhasil disimpan." } : { ok: false, text: result.error || "Gagal menyimpan nilai." });
       if (result.ok) router.refresh();
     });
@@ -59,22 +64,18 @@ export function ScoringForm({ applicationId, status, claims }: { applicationId: 
           </div>
 
           <div className="p-4 sm:p-5">
-            <div>
-              <h3 className="text-sm font-black text-[var(--rpl-green-950)]">Bukti Mahasiswa</h3>
-              <div className="mt-3 grid gap-2 lg:grid-cols-2">{claim.evidences.map((e) => <a key={e.id} href={e.url} target="_blank" rel="noopener noreferrer" className="flex items-start gap-3 rounded-xl border border-[var(--line)] p-3 hover:bg-[#f8fcfa]"><div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[var(--rpl-green-50)] text-[var(--rpl-green-800)]"><i className="bi bi-box-arrow-up-right" /></div><div className="min-w-0"><div className="text-[10px] font-black uppercase text-[var(--rpl-orange)]">{e.type}</div><div className="text-sm font-black">{e.title}</div>{e.description && <div className="mt-1 text-xs leading-5 text-[var(--muted)]">{e.description}</div>}</div></a>)}{!claim.evidences.length && <div className="text-sm text-[var(--muted)]">Tidak ada bukti terhubung.</div>}</div>
-            </div>
-
-            <div className="mt-5 border-t border-[var(--line)] pt-5">
-              <h3 className="text-sm font-black text-[var(--rpl-green-950)]">Penilaian VATM & Nilai</h3>
-              {claim.assessmentType === "OBE" ? (
-                <div className="mt-3 space-y-3">{claim.cpmks.map((cp) => {
-                  const key = `${claim.id}:${cp.id}`; const e = entries[key];
-                  return <ScoreRow key={key} title={cp.code} description={cp.description} entry={e} disabled={disabled} onChange={(patch) => update(key, patch)} />;
-                })}{!claim.cpmks.length && <div className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">Mata kuliah OBE ini belum memiliki CPMK aktif. Hubungi Program Studi.</div>}</div>
-              ) : (
-                <div className="mt-3"><ScoreRow title="Mata Kuliah" description="Penilaian Non OBE dilakukan langsung pada mata kuliah." entry={entries[`${claim.id}:COURSE`]} disabled={disabled} onChange={(patch) => update(`${claim.id}:COURSE`, patch)} /></div>
-              )}
-            </div>
+            <h3 className="text-sm font-black text-[var(--rpl-green-950)]">Penilaian VATM & Nilai</h3>
+            {claim.assessmentType === "OBE" ? (
+              <div className="mt-3 space-y-3">
+                {claim.cpmks.map((cp) => {
+                  const key = `${claim.id}:${cp.id}`;
+                  return <ScoreRow key={key} title={cp.code} description={cp.description} evidences={cp.evidences} entry={entries[key]} disabled={disabled} onChange={(patch) => update(key, patch)} />;
+                })}
+                {!claim.cpmks.length && <div className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">Mata kuliah OBE ini belum memiliki CPMK aktif. Hubungi Program Studi.</div>}
+              </div>
+            ) : (
+              <div className="mt-3"><ScoreRow title="Mata Kuliah" description="Penilaian Non OBE dilakukan langsung pada mata kuliah." evidences={claim.evidences} entry={entries[`${claim.id}:COURSE`]} disabled={disabled} onChange={(patch) => update(`${claim.id}:COURSE`, patch)} /></div>
+            )}
           </div>
         </section>
       ))}
@@ -84,13 +85,23 @@ export function ScoringForm({ applicationId, status, claims }: { applicationId: 
   );
 }
 
-function ScoreRow({ title, description, entry, disabled, onChange }: { title: string; description: string; entry: Entry; disabled: boolean; onChange: (patch: Partial<Entry>) => void }) {
+function ScoreRow({ title, description, evidences, entry, disabled, onChange }: { title: string; description: string; evidences: Evidence[]; entry: Entry; disabled: boolean; onChange: (patch: Partial<Entry>) => void }) {
   if (!entry) return null;
   return (
     <div className="rounded-xl border border-[var(--line)] p-3 sm:p-4">
-      <div className="grid gap-4 xl:grid-cols-[minmax(230px,1fr)_230px_110px_minmax(220px,.8fr)] xl:items-center">
-        <div><div className="text-xs font-black text-[var(--rpl-green-800)]">{title}</div><div className="mt-1 text-sm leading-6">{description}</div></div>
-        <div><div className="rpl-label">VATM</div><div className="flex gap-2">{(["v","a","t","m"] as const).map((k) => <label key={k} className={`grid h-10 w-10 cursor-pointer place-items-center rounded-lg border text-xs font-black uppercase ${entry[k] ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-[var(--line)]"}`}><input type="checkbox" className="sr-only" disabled={disabled} checked={entry[k]} onChange={(ev) => onChange({ [k]: ev.target.checked })} />{k.toUpperCase()}</label>)}</div></div>
+      <div className="grid gap-4 xl:grid-cols-[minmax(280px,1.2fr)_230px_110px_minmax(220px,.8fr)] xl:items-start">
+        <div>
+          <div className="text-xs font-black text-[var(--rpl-green-800)]">{title}</div>
+          <div className="mt-1 text-sm leading-6">{description}</div>
+          <div className="mt-3 border-t border-[var(--line)] pt-3">
+            <div className="text-[10px] font-black uppercase tracking-wide text-[var(--muted)]">Bukti Dukung CPMK</div>
+            <div className="mt-2 space-y-2">
+              {evidences.map((evidence) => <a key={evidence.id} href={evidence.url} target="_blank" rel="noopener noreferrer" className="block rounded-lg border border-[var(--line)] bg-[#fbfdfc] p-2.5 hover:bg-emerald-50"><div className="flex items-center gap-2 text-xs font-black text-[var(--rpl-green-800)]"><i className="bi bi-box-arrow-up-right" /> Buka Bukti</div>{evidence.description && <div className="mt-1 text-xs leading-5 text-[var(--muted)]">{evidence.description}</div>}</a>)}
+              {!evidences.length && <div className="text-xs text-amber-700">Belum ada bukti dukung.</div>}
+            </div>
+          </div>
+        </div>
+        <div><div className="rpl-label">VATM</div><div className="flex gap-2">{(["v","a","t","m"] as const).map((key) => <label key={key} className={`grid h-10 w-10 cursor-pointer place-items-center rounded-lg border text-xs font-black uppercase ${entry[key] ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-[var(--line)]"}`}><input type="checkbox" className="sr-only" disabled={disabled} checked={entry[key]} onChange={(ev) => onChange({ [key]: ev.target.checked })} />{key.toUpperCase()}</label>)}</div></div>
         <div><label className="rpl-label">Nilai</label><input className="rpl-input text-center font-black" disabled={disabled} type="number" min="0" max="100" step="0.01" value={entry.score} onChange={(ev) => onChange({ score: ev.target.value })} placeholder="0-100" /></div>
         <div><label className="rpl-label">Catatan</label><input className="rpl-input" disabled={disabled} value={entry.note} onChange={(ev) => onChange({ note: ev.target.value })} placeholder="Catatan asesor..." /></div>
       </div>

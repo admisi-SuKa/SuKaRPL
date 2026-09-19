@@ -20,7 +20,7 @@ export default async function ProdiDashboard() {
   if (appIds.length) {
     const [c, e, a, p] = await Promise.all([
       supabase.from("course_claims").select("application_id").in("application_id", appIds),
-      supabase.from("evidences").select("application_id").in("application_id", appIds),
+      supabase.from("supporting_evidences").select("course_claim_id,course_claim:course_claims(application_id)"),
       supabase.from("assessor_assignments").select("application_id").in("application_id", appIds),
       supabase.from("payments").select("application_id,status").in("application_id", appIds)
     ]);
@@ -30,7 +30,7 @@ export default async function ProdiDashboard() {
   const rows = (applications || []).map((app: any) => ({
     ...app,
     claimCount: claims.filter((x) => x.application_id === app.id).length,
-    evidenceCount: evidences.filter((x) => x.application_id === app.id).length,
+    evidenceCount: evidences.filter((x: any) => x.course_claim?.application_id === app.id).length,
     assigned: assignments.some((x) => x.application_id === app.id),
     paymentStatus: payments.find((x) => x.application_id === app.id)?.status || null
   }));
