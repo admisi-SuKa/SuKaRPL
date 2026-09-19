@@ -1,5 +1,5 @@
-const CACHE = "sukarpl-shell-v1";
-const SHELL = ["/offline", "/icon-192.png", "/icon-512.png", "/favicon-32.png"];
+const CACHE = "sukarpl-shell-v2";
+const SHELL = ["/offline", "/icon-192.png", "/icon-512.png", "/favicon-32.png", "/rpl-logo.png"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL)));
@@ -19,7 +19,6 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
 
-  // Never cache authenticated Supabase/API traffic or dynamic application data.
   if (url.pathname.startsWith("/api/") || url.pathname.startsWith("/auth/")) return;
 
   if (request.mode === "navigate") {

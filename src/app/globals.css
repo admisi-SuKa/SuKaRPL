@@ -106,3 +106,37 @@ button { cursor: pointer; }
   body { background: white !important; }
   .rpl-card { box-shadow: none !important; }
 }
+
+/* Login fields: reserve fixed space for Bootstrap Icons so text never overlaps. */
+.rpl-field-icon {
+  position: absolute;
+  left: .9rem;
+  top: 50%;
+  z-index: 2;
+  transform: translateY(-50%);
+  color: #789089;
+  pointer-events: none;
+  line-height: 1;
+}
+.rpl-input-with-icon {
+  padding-left: 2.75rem !important;
+}
+.rpl-input-with-action {
+  padding-right: 3.25rem !important;
+}
+.rpl-field-action {
+  position: absolute;
+  right: .4rem;
+  top: 50%;
+  z-index: 3;
+  display: grid;
+  width: 2.35rem;
+  height: 2.35rem;
+  place-items: center;
+  transform: translateY(-50%);
+  border: 0;
+  border-radius: .65rem;
+  background: transparent;
+  color: #60756f;
+}
+.rpl-field-action:hover { background: #f1f7f5; color: var(--rpl-green-900); }

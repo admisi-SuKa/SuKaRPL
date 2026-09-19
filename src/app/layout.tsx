@@ -12,10 +12,10 @@ export const metadata: Metadata = {
   applicationName: "SuKaRPL",
   icons: {
     icon: [
-      { url: "/favicon.ico" },
-      { url: "/favicon-32.png", sizes: "32x32", type: "image/png" }
+      { url: "/favicon.ico?v=2" },
+      { url: "/favicon-32.png?v=2", sizes: "32x32", type: "image/png" }
     ],
-    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }]
+    apple: [{ url: "/apple-touch-icon.png?v=2", sizes: "180x180", type: "image/png" }]
   }
 };
 

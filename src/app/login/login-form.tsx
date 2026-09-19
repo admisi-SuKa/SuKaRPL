@@ -10,7 +10,9 @@ const roles = [
   { id: "assessor", label: "Asesor", icon: "bi-clipboard-check" }
 ] as const;
 
-export function LoginForm() {
+type ProgramOption = { id: string; code: string; name: string };
+
+export function LoginForm({ programs }: { programs: ProgramOption[] }) {
   const [role, setRole] = useState<(typeof roles)[number]["id"]>("participant");
   const [showPassword, setShowPassword] = useState(false);
   const [state, action, pending] = useActionState(loginAction, initialState);
@@ -18,6 +20,7 @@ export function LoginForm() {
   return (
     <form action={action} className="mt-7">
       <input type="hidden" name="role" value={role} />
+
       <div className="grid grid-cols-3 gap-1 rounded-xl bg-[#edf5f2] p-1 mb-6">
         {roles.map((item) => (
           <button
@@ -37,20 +40,78 @@ export function LoginForm() {
         </div>
       )}
 
-      <div className="mb-4">
-        <label className="rpl-label" htmlFor="email">Email akun</label>
-        <div className="relative">
-          <i className="bi bi-envelope absolute left-3 top-1/2 -translate-y-1/2 text-[#789089]" aria-hidden="true" />
-          <input id="email" name="email" type="email" autoComplete="username" className="rpl-input pl-10" placeholder="nama@uin-suka.ac.id" required />
+      {role === "participant" && (
+        <div className="mb-4">
+          <label className="rpl-label" htmlFor="participantIdentifier">Nomor Pendaftaran</label>
+          <div className="relative">
+            <i className="bi bi-person-vcard rpl-field-icon" aria-hidden="true" />
+            <input
+              id="participantIdentifier"
+              name="identifier"
+              type="text"
+              inputMode="numeric"
+              autoComplete="username"
+              className="rpl-input rpl-input-with-icon"
+              placeholder="Masukkan nomor pendaftaran"
+              required
+            />
+          </div>
         </div>
-      </div>
+      )}
+
+      {role === "assessor" && (
+        <div className="mb-4">
+          <label className="rpl-label" htmlFor="assessorIdentifier">NIP Asesor</label>
+          <div className="relative">
+            <i className="bi bi-person-badge rpl-field-icon" aria-hidden="true" />
+            <input
+              id="assessorIdentifier"
+              name="identifier"
+              type="text"
+              inputMode="numeric"
+              autoComplete="username"
+              className="rpl-input rpl-input-with-icon"
+              placeholder="Masukkan NIP"
+              required
+            />
+          </div>
+        </div>
+      )}
+
+      {role === "prodi" && (
+        <div className="mb-4">
+          <label className="rpl-label" htmlFor="programId">Program Studi</label>
+          <div className="relative">
+            <i className="bi bi-building rpl-field-icon" aria-hidden="true" />
+            <select id="programId" name="programId" className="rpl-select rpl-input-with-icon" defaultValue="" required>
+              <option value="" disabled>Pilih program studi</option>
+              {programs.map((program) => (
+                <option key={program.id} value={program.id}>{program.name}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      )}
 
       <div className="mb-5">
         <label className="rpl-label" htmlFor="password">Password</label>
         <div className="relative">
-          <i className="bi bi-lock absolute left-3 top-1/2 -translate-y-1/2 text-[#789089]" aria-hidden="true" />
-          <input id="password" name="password" type={showPassword ? "text" : "password"} autoComplete="current-password" className="rpl-input pl-10 pr-11" placeholder="Masukkan password" required />
-          <button type="button" onClick={() => setShowPassword((v) => !v)} className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-[#60756f]" aria-label={showPassword ? "Sembunyikan password" : "Tampilkan password"}>
+          <i className="bi bi-lock rpl-field-icon" aria-hidden="true" />
+          <input
+            id="password"
+            name="password"
+            type={showPassword ? "text" : "password"}
+            autoComplete="current-password"
+            className="rpl-input rpl-input-with-icon rpl-input-with-action"
+            placeholder="Masukkan password"
+            required
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword((v) => !v)}
+            className="rpl-field-action"
+            aria-label={showPassword ? "Sembunyikan password" : "Tampilkan password"}
+          >
             <i className={`bi ${showPassword ? "bi-eye-slash" : "bi-eye"}`} aria-hidden="true" />
           </button>
         </div>
@@ -62,7 +123,7 @@ export function LoginForm() {
 
       {process.env.NEXT_PUBLIC_SHOW_DEMO_CREDENTIALS === "true" && (
         <div className="mt-5 rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs text-amber-900 leading-5">
-          <strong>Mode demo:</strong> setelah menjalankan <code>npm run seed:demo</code>, kredensial contoh tersedia di README.
+          <strong>Mode demo:</strong> setelah menjalankan <code>npm run seed:demo</code>, gunakan Nomor Pendaftaran/NIP/Prodi dan password demo yang tersedia di README.
         </div>
       )}
     </form>

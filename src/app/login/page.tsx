@@ -1,13 +1,22 @@
 import { redirect } from "next/navigation";
 import { BrandLogo } from "@/components/brand-logo";
 import { getCurrentProfile, roleHome } from "@/lib/auth";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { LoginForm } from "./login-form";
 
 export const metadata = { title: "Login" };
+export const dynamic = "force-dynamic";
 
 export default async function LoginPage() {
   const profile = await getCurrentProfile();
   if (profile) redirect(roleHome(profile.role));
+
+  const admin = createAdminClient();
+  const { data: programs } = await admin
+    .from("programs")
+    .select("id,code,name")
+    .eq("active", true)
+    .order("name");
 
   return (
     <main className="min-h-dvh bg-white lg:grid lg:grid-cols-[1.08fr_.92fr]">
@@ -31,10 +40,10 @@ export default async function LoginPage() {
           <div className="mt-8">
             <p className="text-xs font-black uppercase tracking-[.14em] text-[var(--rpl-orange)]">Portal Akademik</p>
             <h2 className="mt-2 text-3xl font-black tracking-tight text-[var(--rpl-green-950)]">Selamat datang</h2>
-            <p className="mt-2 text-sm leading-6 text-[var(--muted)]">Masuk sesuai peran Anda untuk mengakses layanan RPL.</p>
+            <p className="mt-2 text-sm leading-6 text-[var(--muted)]">Mahasiswa masuk dengan Nomor Pendaftaran, Asesor dengan NIP, dan Prodi dengan pilihan program studi.</p>
           </div>
-          <LoginForm />
-          <p className="mt-7 text-center text-[11px] leading-5 text-[#81918d]">Data asesmen dan rekognisi diproses melalui koneksi terenkripsi. Jangan bagikan kredensial akun Anda.</p>
+          <LoginForm programs={programs || []} />
+          <p className="mt-7 text-center text-[11px] leading-5 text-[#81918d]">Data asesmen dan rekognisi diproses melalui koneksi terenkripsi. Jangan bagikan password akun Anda.</p>
         </div>
       </section>
     </main>
