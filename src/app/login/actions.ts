@@ -8,7 +8,7 @@ import type { UserRole } from "@/lib/types";
 
 export type LoginState = { error?: string };
 
-type LoginRole = Extract<UserRole, "participant" | "prodi" | "assessor">;
+type LoginRole = Extract<UserRole, "participant" | "prodi" | "assessor" | "admin">;
 
 type ProfileLookup = {
   email: string | null;
@@ -84,6 +84,7 @@ async function resolveProdiEmail(programId: string): Promise<string | null> {
 function invalidCredentials(role: LoginRole) {
   if (role === "participant") return "Nomor pendaftaran atau password tidak sesuai.";
   if (role === "assessor") return "NIP atau password tidak sesuai.";
+  if (role === "admin") return "Email admin atau password tidak sesuai.";
   return "Program studi atau password tidak sesuai.";
 }
 
@@ -97,11 +98,13 @@ export async function loginAction(_previous: LoginState, formData: FormData): Pr
   if (role === "participant" && !identifier) return { error: "Nomor pendaftaran wajib diisi." };
   if (role === "assessor" && !identifier) return { error: "NIP wajib diisi." };
   if (role === "prodi" && !programId) return { error: "Program studi wajib dipilih." };
+  if (role === "admin" && !identifier) return { error: "Email admin wajib diisi." };
 
   let email: string | null = null;
   if (role === "participant") email = await resolveParticipantEmail(identifier);
   if (role === "assessor") email = await resolveAssessorEmail(identifier);
   if (role === "prodi") email = await resolveProdiEmail(programId);
+  if (role === "admin") email = identifier.toLowerCase();
   if (!email) return { error: invalidCredentials(role) };
 
   const supabase = await createClient();

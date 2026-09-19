@@ -10,6 +10,6 @@ const nav = [
 ];
 
 export default async function ProdiLayout({ children }: { children: React.ReactNode }) {
-  const profile = await requireProfile(["prodi", "admin"]);
+  const profile = await requireProfile("prodi");
   return <AppShell profile={profile} nav={nav}>{children}</AppShell>;
 }

@@ -7,7 +7,7 @@ import { ParticipantControls } from "./participant-controls";
 
 export default async function ProdiParticipantDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const profile = await requireProfile(["prodi", "admin"]);
+  const profile = await requireProfile("prodi");
   const supabase = await createClient();
   const { data: application } = await supabase.from("applications").select("*,participant:participants(*)").eq("id", id).eq("program_id", profile.program_id!).maybeSingle();
   if (!application) notFound();

@@ -8,7 +8,7 @@ import { formatDateTime } from "@/lib/utils";
 export const metadata = { title: "Dashboard Prodi" };
 
 export default async function ProdiDashboard() {
-  const profile = await requireProfile(["prodi", "admin"]);
+  const profile = await requireProfile("prodi");
   const supabase = await createClient();
   const programId = profile.program_id!;
 

@@ -5,7 +5,7 @@ import { AssessorManager } from "./assessor-manager";
 export const metadata = { title: "Asesor & Plotting" };
 
 export default async function AssessorsPage() {
-  const profile = await requireProfile(["prodi", "admin"]);
+  const profile = await requireProfile("prodi");
   const supabase = await createClient();
   const programId = profile.program_id!;
   const [{ data: assessors }, { data: applications }] = await Promise.all([

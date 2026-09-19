@@ -7,7 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
 async function getContext() {
-  const profile = await requireProfile(["prodi", "admin"]);
+  const profile = await requireProfile("prodi");
   if (!profile.program_id) throw new Error("Akun Prodi belum terhubung ke program studi.");
   const supabase = await createClient();
   return { profile, supabase, programId: profile.program_id };

@@ -12,7 +12,7 @@ type NavItem = { href: string; label: string; shortLabel?: string; icon: string 
 export function AppShell({ profile, nav, children }: { profile: CurrentProfile; nav: NavItem[]; children: React.ReactNode }) {
   const pathname = usePathname();
   const active = (href: string) => {
-    if (["/mahasiswa", "/prodi", "/asesor"].includes(href)) return pathname === href;
+    if (["/mahasiswa", "/prodi", "/asesor", "/admin"].includes(href)) return pathname === href;
     return pathname === href || pathname.startsWith(`${href}/`);
   };
 

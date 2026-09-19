@@ -31,7 +31,8 @@ export async function requireProfile(roles?: UserRole | UserRole[]) {
 
 export function roleHome(role: UserRole) {
   if (role === "participant") return "/mahasiswa";
-  if (role === "prodi" || role === "admin") return "/prodi";
+  if (role === "prodi") return "/prodi";
+  if (role === "admin") return "/admin";
   if (role === "assessor") return "/asesor";
   return "/login";
 }

@@ -40,7 +40,7 @@ export default async function LoginPage() {
           <div className="mt-8">
             <p className="text-xs font-black uppercase tracking-[.14em] text-[var(--rpl-orange)]">Portal Akademik</p>
             <h2 className="mt-2 text-3xl font-black tracking-tight text-[var(--rpl-green-950)]">Selamat datang</h2>
-            <p className="mt-2 text-sm leading-6 text-[var(--muted)]">Mahasiswa masuk dengan Nomor Pendaftaran, Asesor dengan NIP, dan Prodi dengan pilihan program studi.</p>
+            <p className="mt-2 text-sm leading-6 text-[var(--muted)]">Mahasiswa masuk dengan Nomor Pendaftaran, Asesor dengan NIP, Prodi dengan pilihan program studi, dan Admin dengan email.</p>
           </div>
           <LoginForm programs={programs || []} />
           <p className="mt-7 text-center text-[11px] leading-5 text-[#81918d]">Data asesmen dan rekognisi diproses melalui koneksi terenkripsi. Jangan bagikan password akun Anda.</p>

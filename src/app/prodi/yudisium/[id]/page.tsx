@@ -9,7 +9,7 @@ function avg(values: number[]) { return values.length ? (values.reduce((a,b) => 
 
 export default async function YudisiumDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const profile = await requireProfile(["prodi", "admin"]);
+  const profile = await requireProfile("prodi");
   const supabase = await createClient();
   const { data: app } = await supabase.from("applications").select("*,participant:participants(participant_no,full_name)").eq("id", id).eq("program_id", profile.program_id!).maybeSingle();
   if (!app) notFound();

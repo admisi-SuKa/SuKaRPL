@@ -7,7 +7,8 @@ const initialState: LoginState = {};
 const roles = [
   { id: "participant", label: "Mahasiswa", icon: "bi-person" },
   { id: "prodi", label: "Prodi", icon: "bi-building" },
-  { id: "assessor", label: "Asesor", icon: "bi-clipboard-check" }
+  { id: "assessor", label: "Asesor", icon: "bi-clipboard-check" },
+  { id: "admin", label: "Admin", icon: "bi-shield-lock" }
 ] as const;
 
 type ProgramOption = { id: string; code: string; name: string };
@@ -21,7 +22,7 @@ export function LoginForm({ programs }: { programs: ProgramOption[] }) {
     <form action={action} className="mt-7">
       <input type="hidden" name="role" value={role} />
 
-      <div className="grid grid-cols-3 gap-1 rounded-xl bg-[#edf5f2] p-1 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-1 rounded-xl bg-[#edf5f2] p-1 mb-6">
         {roles.map((item) => (
           <button
             key={item.id}
@@ -72,6 +73,24 @@ export function LoginForm({ programs }: { programs: ProgramOption[] }) {
               autoComplete="username"
               className="rpl-input rpl-input-with-icon"
               placeholder="Masukkan NIP"
+              required
+            />
+          </div>
+        </div>
+      )}
+
+      {role === "admin" && (
+        <div className="mb-4">
+          <label className="rpl-label" htmlFor="adminIdentifier">Email Admin</label>
+          <div className="relative">
+            <i className="bi bi-shield-lock rpl-field-icon" aria-hidden="true" />
+            <input
+              id="adminIdentifier"
+              name="identifier"
+              type="email"
+              autoComplete="username"
+              className="rpl-input rpl-input-with-icon"
+              placeholder="Masukkan email admin"
               required
             />
           </div>

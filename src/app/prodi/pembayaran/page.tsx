@@ -25,7 +25,7 @@ const methodLabels: Record<string, string> = {
 };
 
 export default async function ProdiPaymentPage() {
-  const profile = await requireProfile(["prodi", "admin"]);
+  const profile = await requireProfile("prodi");
   const supabase = await createClient();
   const programId = profile.program_id!;
 

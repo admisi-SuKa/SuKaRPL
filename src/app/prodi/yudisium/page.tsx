@@ -8,7 +8,7 @@ import { SettingsForm } from "./settings-form";
 export const metadata = { title: "Yudisium" };
 
 export default async function YudisiumPage() {
-  const profile = await requireProfile(["prodi", "admin"]);
+  const profile = await requireProfile("prodi");
   const supabase = await createClient();
   const programId = profile.program_id!;
   const [{ data: settings }, { data: applications }] = await Promise.all([
