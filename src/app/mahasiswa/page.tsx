@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { StatusBadge } from "@/components/status-badge";
+import { ParticipantPhoto } from "@/components/participant-photo";
 import { StatCard } from "@/components/stat-card";
 import { requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { formatDate } from "@/lib/utils";
+import { extractLegacyPhotoUrl } from "@/lib/participant-photo";
 import { createApplicationAction } from "./actions";
 
 export const metadata = { title: "Beranda Mahasiswa" };
@@ -33,11 +35,14 @@ export default async function ParticipantDashboard() {
     <div className="space-y-5">
       <section className="rounded-2xl bg-gradient-to-br from-[var(--rpl-green-900)] to-[var(--rpl-green-700)] p-5 sm:p-7 text-white overflow-hidden relative">
         <div className="absolute -right-12 -top-12 h-40 w-40 rounded-full bg-white/5" />
-        <div className="relative">
-          <div className="text-xs font-black uppercase tracking-[.12em] text-emerald-100">Mahasiswa RPL</div>
-          <h1 className="mt-2 text-2xl sm:text-3xl font-black">Halo, {participant?.full_name || profile.full_name}</h1>
-          <p className="mt-2 text-sm text-white/75">{participant?.participant_no || "-"} • {profile.program?.name || "Program Studi"}</p>
-          {application && <div className="mt-4"><StatusBadge status={application.status} /></div>}
+        <div className="relative flex items-center gap-4 sm:gap-5">
+          <ParticipantPhoto registrationNo={participant?.registration_no} directUrl={extractLegacyPhotoUrl(participant?.legacy_payload)} name={participant?.full_name || profile.full_name} className="h-20 w-20 border-white/25 bg-white/10 sm:h-24 sm:w-24" iconClassName="text-4xl text-white" />
+          <div className="min-w-0">
+            <div className="text-xs font-black uppercase tracking-[.12em] text-emerald-100">Mahasiswa RPL</div>
+            <h1 className="mt-2 text-2xl sm:text-3xl font-black">Halo, {participant?.full_name || profile.full_name}</h1>
+            <p className="mt-2 text-sm text-white/75">{participant?.participant_no || "-"} • {profile.program?.name || "Program Studi"}</p>
+            {application && <div className="mt-4"><StatusBadge status={application.status} /></div>}
+          </div>
         </div>
       </section>
 

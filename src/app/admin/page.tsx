@@ -38,7 +38,7 @@ export default async function AdminDashboard() {
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Link href="/admin/mahasiswa" className="rpl-card p-5 transition hover:-translate-y-0.5 hover:shadow-md"><div className="text-2xl text-[var(--rpl-green-800)]"><i className="bi bi-person-plus" /></div><h2 className="mt-3 font-black">Kelola Calon Mahasiswa</h2><p className="mt-2 text-sm leading-6 text-[var(--muted)]">Tambah, edit, aktif/nonaktifkan, dan reset password mahasiswa.</p></Link>
-        <Link href="/admin/prodi" className="rpl-card p-5 transition hover:-translate-y-0.5 hover:shadow-md"><div className="text-2xl text-[var(--rpl-orange)]"><i className="bi bi-key" /></div><h2 className="mt-3 font-black">Kelola Akun Prodi</h2><p className="mt-2 text-sm leading-6 text-[var(--muted)]">Reset password dan kelola status aktif akun Prodi.</p></Link>
+        <Link href="/admin/pengguna" className="rpl-card p-5 transition hover:-translate-y-0.5 hover:shadow-md"><div className="text-2xl text-[var(--rpl-orange)]"><i className="bi bi-people-fill" /></div><h2 className="mt-3 font-black">Semua Pengguna</h2><p className="mt-2 text-sm leading-6 text-[var(--muted)]">Kelola Mahasiswa, Asesor, Prodi, dan Administrator pada satu tabel.</p></Link>
         <Link href="/admin/audit" className="rpl-card p-5 transition hover:-translate-y-0.5 hover:shadow-md"><div className="text-2xl text-[var(--rpl-green-800)]"><i className="bi bi-clock-history" /></div><h2 className="mt-3 font-black">Audit Aktivitas</h2><p className="mt-2 text-sm leading-6 text-[var(--muted)]">Lihat jejak perubahan administratif yang dilakukan pengguna sistem.</p></Link>
       </div>
 

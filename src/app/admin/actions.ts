@@ -297,7 +297,7 @@ export async function setProdiActiveAction(formData: FormData): Promise<void> {
   await audit(userId, active ? "ADMIN_ACTIVATE_PRODI" : "ADMIN_DEACTIVATE_PRODI", "profile", profileId, profile.program_id, {
     full_name: profile.full_name
   });
-  revalidatePath("/admin/prodi");
+  revalidatePath("/admin/pengguna");
 }
 
 const managedUserSchema = z.object({
@@ -351,7 +351,7 @@ export async function updateManagedUserAction(input: z.infer<typeof managedUserS
   });
   revalidatePath("/admin/pengguna");
   revalidatePath("/admin/mahasiswa");
-  revalidatePath("/admin/prodi");
+  revalidatePath("/admin/pengguna");
   return { ok: true };
 }
 

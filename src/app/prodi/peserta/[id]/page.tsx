@@ -1,8 +1,10 @@
 import { notFound } from "next/navigation";
 import { StatusBadge } from "@/components/status-badge";
+import { ParticipantPhoto } from "@/components/participant-photo";
 import { requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { formatDateTime } from "@/lib/utils";
+import { extractLegacyPhotoUrl } from "@/lib/participant-photo";
 import { ParticipantControls } from "./participant-controls";
 
 export default async function ProdiParticipantDetail({ params }: { params: Promise<{ id: string }> }) {
@@ -36,7 +38,7 @@ export default async function ProdiParticipantDetail({ params }: { params: Promi
     <div className="space-y-5">
       <section className="rpl-card p-5">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div><div className="text-xs font-black text-[var(--rpl-green-800)]">{participant?.participant_no}</div><h1 className="mt-1 text-2xl font-black text-[var(--rpl-green-950)]">{participant?.full_name}</h1><p className="mt-1 text-sm text-[var(--muted)]">{participant?.email || "-"} • Dikirim {formatDateTime(application.submitted_at)}</p></div>
+          <div className="flex items-center gap-4"><ParticipantPhoto registrationNo={participant?.registration_no} directUrl={extractLegacyPhotoUrl(participant?.legacy_payload)} name={participant?.full_name} className="h-16 w-16 sm:h-20 sm:w-20" iconClassName="text-3xl" /><div><div className="text-xs font-black text-[var(--rpl-green-800)]">{participant?.participant_no}</div><h1 className="mt-1 text-2xl font-black text-[var(--rpl-green-950)]">{participant?.full_name}</h1><p className="mt-1 text-sm text-[var(--muted)]">{participant?.email || "-"} • Dikirim {formatDateTime(application.submitted_at)}</p></div></div>
           <StatusBadge status={application.status} />
         </div>
         {application.return_note && application.status === "RETURNED" && <div className="mt-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-900"><strong>Catatan revisi:</strong> {application.return_note}</div>}

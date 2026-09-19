@@ -6,7 +6,6 @@ const nav = [
   { href: "/admin/mahasiswa", label: "Calon Mahasiswa", shortLabel: "Mhs", icon: "bi-person-lines-fill" },
   { href: "/admin/import", label: "Import", shortLabel: "Import", icon: "bi-file-earmark-arrow-up" },
   { href: "/admin/pengguna", label: "Pengguna", shortLabel: "User", icon: "bi-people-fill" },
-  { href: "/admin/prodi", label: "Akun Prodi", shortLabel: "Prodi", icon: "bi-building-gear" },
   { href: "/admin/audit", label: "Audit Log", shortLabel: "Audit", icon: "bi-clock-history" }
 ];
 
