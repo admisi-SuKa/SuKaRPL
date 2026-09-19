@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireProfile } from "@/lib/auth";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
 async function getContext() {
@@ -23,21 +24,71 @@ async function audit(action: string, entityType: string, entityId?: string, meta
   await supabase.from("audit_logs").insert({ actor_user_id: userId, program_id: profile.program_id, action, entity_type: entityType, entity_id: entityId || null, metadata });
 }
 
-export async function createApplicationAction(): Promise<void> {
-  const { participant, application, supabase } = await getContext();
-  if (application) redirect("/mahasiswa/pengajuan");
+export type StartApplicationState = { error?: string };
 
-  const { data, error } = await supabase
+export async function createApplicationAction(
+  _previous: StartApplicationState,
+  _formData: FormData
+): Promise<StartApplicationState> {
+  // Verify the current session as a participant first. The actual creation is
+  // performed server-side with the secret-key client after ownership has been
+  // established. This avoids a fragile first-write dependency on browser RLS
+  // while still preventing a participant from creating an application for
+  // another account.
+  const profile = await requireProfile("participant");
+  const supabase = await createClient();
+  const { data: participant, error: participantError } = await supabase
+    .from("participants")
+    .select("id,program_id")
+    .eq("profile_id", profile.id)
+    .maybeSingle();
+
+  if (participantError || !participant) {
+    return { error: "Data calon mahasiswa tidak ditemukan. Silakan keluar lalu login kembali." };
+  }
+
+  let admin;
+  try {
+    admin = createAdminClient();
+  } catch {
+    return { error: "Konfigurasi server belum lengkap. Hubungi administrator SuKaRPL." };
+  }
+
+  // Idempotent: if the application was already created by a previous click,
+  // continue to it instead of producing a duplicate-key error.
+  const { data: existing, error: existingError } = await admin
+    .from("applications")
+    .select("id")
+    .eq("participant_id", participant.id)
+    .maybeSingle();
+
+  if (existingError) {
+    return { error: `Gagal memeriksa pengajuan: ${existingError.message}` };
+  }
+  if (existing) redirect("/mahasiswa/pengajuan");
+
+  const { data, error } = await admin
     .from("applications")
     .insert({ participant_id: participant.id, program_id: participant.program_id, status: "DRAFT" })
-    .select()
+    .select("id")
     .single();
 
   if (error || !data) {
-    throw new Error(error?.message || "Gagal membuat pengajuan.");
+    // A double click/race can still reach the unique constraint. Treat it as
+    // success if the row now exists.
+    if (error?.code === "23505") {
+      const { data: raced } = await admin
+        .from("applications")
+        .select("id")
+        .eq("participant_id", participant.id)
+        .maybeSingle();
+      if (raced) redirect("/mahasiswa/pengajuan");
+    }
+    return { error: error?.message || "Gagal membuat pengajuan RPL." };
   }
 
-  await audit("CREATE_APPLICATION", "application", data.id);
+  // Audit failure must not cancel a successfully created application.
+  await audit("CREATE_APPLICATION", "application", data.id).catch(() => undefined);
   revalidatePath("/mahasiswa");
   revalidatePath("/mahasiswa/pengajuan");
   redirect("/mahasiswa/pengajuan");

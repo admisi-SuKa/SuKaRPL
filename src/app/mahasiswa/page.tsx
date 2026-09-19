@@ -6,7 +6,7 @@ import { requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { formatDate } from "@/lib/utils";
 import { extractLegacyPhotoUrl } from "@/lib/participant-photo";
-import { createApplicationAction } from "./actions";
+import { StartApplicationButton } from "./start-application-button";
 
 export const metadata = { title: "Beranda Mahasiswa" };
 
@@ -71,7 +71,7 @@ export default async function ParticipantDashboard() {
             {application ? (
               <Link className="rpl-btn rpl-btn-primary" href="/mahasiswa/pengajuan"><i className="bi bi-pencil-square" /> {application.status === "DRAFT" || application.status === "RETURNED" ? "Lanjutkan" : "Lihat"}</Link>
             ) : (
-              <form action={createApplicationAction}><button className="rpl-btn rpl-btn-primary" type="submit"><i className="bi bi-plus-circle" /> Mulai</button></form>
+              <StartApplicationButton />
             )}
           </div>
         </div>
