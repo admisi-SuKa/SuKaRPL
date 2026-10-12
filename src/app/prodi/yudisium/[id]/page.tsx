@@ -4,6 +4,7 @@ import { requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { formatDateTime } from "@/lib/utils";
 import { YudisiumEditor } from "./yudisium-editor";
+import { getAssessmentProgress } from "@/lib/yudisium-validation";
 
 function avgNum(values: number[]) { return values.length ? values.reduce((a,b) => a+b,0)/values.length : null; }
 function fmt(value: number | null) { return value === null ? "" : value.toFixed(2); }
@@ -17,18 +18,27 @@ export default async function YudisiumDetail({ params }: { params: Promise<{ id:
   const [{ data: claims }, { data: assignment }, { data: scores }, { data: decisions }, { data: response }] = await Promise.all([
     supabase.from("course_claims").select("id,course:courses(id,code,name,credits,assessment_type)").eq("application_id", id),
     supabase.from("assessor_assignments").select("assessor1_id,assessor2_id,assessor1:assessors!assessor_assignments_assessor1_id_fkey(full_name,nip),assessor2:assessors!assessor_assignments_assessor2_id_fkey(full_name,nip)").eq("application_id", id).maybeSingle(),
-    supabase.from("assessor_scores").select("assessor_id,course_claim_id,score").eq("application_id", id),
+    supabase.from("assessor_scores").select("assessor_id,course_claim_id,score_scope,score").eq("application_id", id),
     supabase.from("yudisium_decisions").select("course_claim_id,result,status").eq("application_id", id).in("status", app.status === "FINAL" ? ["FINAL"] : ["DRAFT"]),
     supabase.from("recognition_responses").select("response,note,responded_at").eq("application_id", id).maybeSingle()
   ]);
+  const { data: selectedCpmks } = (claims || []).length
+    ? await supabase.from("course_claim_cpmks").select("course_claim_id,cpmk_id,cpmk:cpmks(code)").in("course_claim_id", (claims || []).map((c) => c.id))
+    : { data: [] };
+  const progress = assignment
+    ? getAssessmentProgress(claims as any[] || [], (selectedCpmks || []) as any[], scores || [], assignment.assessor1_id, assignment.assessor2_id)
+    : [];
+  const progressByClaim = new Map(progress.map((p) => [p.claimId, p]));
   const rows = (claims || []).map((claim: any) => {
-    const a1values = (scores || []).filter((s) => s.assessor_id === assignment?.assessor1_id && s.course_claim_id === claim.id && s.score !== null).map((s) => Number(s.score));
-    const a2values = (scores || []).filter((s) => s.assessor_id === assignment?.assessor2_id && s.course_claim_id === claim.id && s.score !== null).map((s) => Number(s.score));
+    const check = progressByClaim.get(claim.id);
+    const relevantScopes = new Set(check?.requiredScopes || []);
+    const a1values = (scores || []).filter((s) => s.assessor_id === assignment?.assessor1_id && s.course_claim_id === claim.id && s.score !== null && relevantScopes.has(s.score_scope)).map((s) => Number(s.score));
+    const a2values = (scores || []).filter((s) => s.assessor_id === assignment?.assessor2_id && s.course_claim_id === claim.id && s.score !== null && relevantScopes.has(s.score_scope)).map((s) => Number(s.score));
     const a1n = avgNum(a1values);
     const a2n = avgNum(a2values);
     const combined = a1n !== null && a2n !== null ? (a1n + a2n) / 2 : null;
     const current = decisions?.find((d) => d.course_claim_id === claim.id)?.result as "YA" | "TIDAK" | undefined;
-    return { id: claim.id, code: claim.course?.code, name: claim.course?.name, credits: Number(claim.course?.credits || 0), assessmentType: claim.course?.assessment_type, a1: fmt(a1n), a2: fmt(a2n), average: fmt(combined), current };
+    return { id: claim.id, code: claim.course?.code, name: claim.course?.name, credits: Number(claim.course?.credits || 0), assessmentType: claim.course?.assessment_type, a1: fmt(a1n), a2: fmt(a2n), average: fmt(combined), current, a1Complete: !!check?.assessor1Complete, a2Complete: !!check?.assessor2Complete, noCpmkSelected: !!check?.noCpmkSelected, missingA1: check?.missingLabelsAssessor1 || [], missingA2: check?.missingLabelsAssessor2 || [] };
   });
 
   return <div className="space-y-5"><section className="rpl-card p-5"><div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div><div className="text-xs font-black text-[var(--rpl-green-800)]">{(app.participant as any)?.participant_no}</div><h1 className="mt-1 text-2xl font-black text-[var(--rpl-green-950)]">{(app.participant as any)?.full_name}</h1><p className="mt-1 text-xs text-[var(--muted)]">Finalisasi: {formatDateTime(app.finalized_at)}</p></div><StatusBadge status={app.status} /></div>{assignment && <div className="mt-4 grid gap-2 sm:grid-cols-2"><div className="rounded-xl bg-[#f7fbfa] p-3 text-sm"><span className="text-xs font-bold text-[var(--muted)]">Asesor 1</span><div className="font-black">{(assignment.assessor1 as any)?.full_name}</div></div><div className="rounded-xl bg-[#f7fbfa] p-3 text-sm"><span className="text-xs font-bold text-[var(--muted)]">Asesor 2</span><div className="font-black">{(assignment.assessor2 as any)?.full_name}</div></div></div>}{response && <div className={`mt-4 rounded-xl p-3 text-sm ${response.response === "SETUJU" ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-900"}`}><strong>Tanggapan mahasiswa: {response.response === "SETUJU" ? "Setuju" : "Tidak Setuju"}</strong>{response.note && <div className="mt-1">{response.note}</div>}</div>}</section><YudisiumEditor applicationId={id} status={app.status} claims={rows as any[]} /></div>;

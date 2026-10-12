@@ -5,6 +5,7 @@ import { z } from "zod";
 import { requireProfile } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { getAssessmentProgress } from "@/lib/yudisium-validation";
 
 async function getContext() {
   const profile = await requireProfile("prodi");
@@ -319,26 +320,28 @@ export async function finalizeYudisiumAction(applicationId: string) {
   const { data: assignment } = await supabase.from("assessor_assignments").select("assessor1_id,assessor2_id").eq("application_id", applicationId).maybeSingle();
   if (!assignment) return { ok: false, error: "Dua asesor belum diplot." };
 
-  const { data: claims } = await supabase.from("course_claims").select("id,course:courses(id,assessment_type)").eq("application_id", applicationId);
+  const { data: claims, error: claimsError } = await supabase.from("course_claims").select("id,course:courses(code,name,assessment_type)").eq("application_id", applicationId);
+  if (claimsError) return { ok: false, error: claimsError.message };
   if (!claims?.length) return { ok: false, error: "Tidak ada mata kuliah yang diajukan." };
-  const { data: decisions } = await supabase.from("yudisium_decisions").select("course_claim_id,result").eq("application_id", applicationId).eq("status", "DRAFT");
+  const { data: decisions, error: decisionsError } = await supabase.from("yudisium_decisions").select("course_claim_id,result").eq("application_id", applicationId).eq("status", "DRAFT");
+  if (decisionsError) return { ok: false, error: decisionsError.message };
   const decisionSet = new Set((decisions || []).map((d) => d.course_claim_id));
   if (claims.some((c) => !decisionSet.has(c.id))) return { ok: false, error: "Keputusan YA/TIDAK belum lengkap untuk seluruh mata kuliah." };
 
-  const assessorIds = [assignment.assessor1_id, assignment.assessor2_id];
-  const { data: scores } = await supabase.from("assessor_scores").select("assessor_id,course_claim_id,score_scope,score").eq("application_id", applicationId).in("assessor_id", assessorIds);
+  // Wajib menggunakan daftar CPMK yang dipilih peserta, BUKAN seluruh CPMK aktif
+  // di master mata kuliah. Cek juga scope tiap nilai agar tidak terhitung ganda.
+  const claimIds = claims.map((c) => c.id);
+  const [{ data: selectedCpmks, error: cpmkError }, { data: scores, error: scoresError }] = await Promise.all([
+    supabase.from("course_claim_cpmks").select("course_claim_id,cpmk_id,cpmk:cpmks(code)").in("course_claim_id", claimIds),
+    supabase.from("assessor_scores").select("assessor_id,course_claim_id,score_scope,score").eq("application_id", applicationId).in("assessor_id", [assignment.assessor1_id, assignment.assessor2_id])
+  ]);
+  if (cpmkError || scoresError) return { ok: false, error: cpmkError?.message || scoresError?.message || "Gagal memeriksa nilai asesor." };
 
-  for (const claim of claims as any[]) {
-    let expected = 1;
-    if (claim.course?.assessment_type === "OBE") {
-      const { count } = await supabase.from("cpmks").select("id", { count: "exact", head: true }).eq("course_id", claim.course.id).eq("active", true);
-      expected = count || 0;
-      if (!expected) return { ok: false, error: `Mata kuliah OBE belum memiliki CPMK aktif.` };
-    }
-    for (const assessorId of assessorIds) {
-      const filled = (scores || []).filter((s) => s.assessor_id === assessorId && s.course_claim_id === claim.id && s.score !== null).length;
-      if (filled < expected) return { ok: false, error: "Nilai dari kedua asesor belum lengkap untuk seluruh mata kuliah." };
-    }
+  const progress = getAssessmentProgress(claims as any[], (selectedCpmks || []) as any[], scores || [], assignment.assessor1_id, assignment.assessor2_id);
+  for (const item of progress) {
+    if (item.noCpmkSelected) return { ok: false, error: `${item.courseLabel}: peserta belum memilih CPMK untuk mata kuliah OBE.` };
+    if (!item.assessor1Complete) return { ok: false, error: `${item.courseLabel}: nilai Asesor 1 belum lengkap (${item.missingLabelsAssessor1.join(", ")}).` };
+    if (!item.assessor2Complete) return { ok: false, error: `${item.courseLabel}: nilai Asesor 2 belum lengkap (${item.missingLabelsAssessor2.join(", ")}).` };
   }
 
   // RPC performs both FINAL updates in one PostgreSQL transaction.
