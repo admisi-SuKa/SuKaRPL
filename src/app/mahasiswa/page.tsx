@@ -77,7 +77,7 @@ export default async function ParticipantDashboard() {
         </div>
         <div className="rpl-card p-5">
           <div className="flex h-full flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div><h2 className="text-lg font-black text-[var(--rpl-green-950)]">Pembayaran RPL</h2><p className="mt-1 text-sm text-[var(--muted)]">Kirim bukti pembayaran dalam bentuk link untuk diverifikasi Prodi.</p></div>
+            <div><h2 className="text-lg font-black text-[var(--rpl-green-950)]">Pembayaran RPL</h2><p className="mt-1 text-sm text-[var(--muted)]">Kirim bukti pembayaran dalam bentuk link untuk diverifikasi Admin.</p></div>
             <Link className="rpl-btn rpl-btn-secondary" href="/mahasiswa/pembayaran"><i className="bi bi-credit-card" /> Form Pembayaran</Link>
           </div>
         </div>

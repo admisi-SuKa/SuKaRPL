@@ -4,6 +4,7 @@ import { requireProfile } from "@/lib/auth";
 const nav = [
   { href: "/admin", label: "Dashboard", shortLabel: "Home", icon: "bi-grid" },
   { href: "/admin/mahasiswa", label: "Calon Mahasiswa", shortLabel: "Mhs", icon: "bi-person-lines-fill" },
+  { href: "/admin/pembayaran", label: "Pembayaran", shortLabel: "Bayar", icon: "bi-receipt" },
   { href: "/admin/import", label: "Import", shortLabel: "Import", icon: "bi-file-earmark-arrow-up" },
   { href: "/admin/pengguna", label: "Pengguna", shortLabel: "User", icon: "bi-people-fill" },
   { href: "/admin/audit", label: "Audit Log", shortLabel: "Audit", icon: "bi-clock-history" }

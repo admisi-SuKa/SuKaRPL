@@ -489,3 +489,72 @@ export async function importParticipantsBatchAction(rows: ImportParticipantInput
   revalidatePath("/admin/pengguna");
   return { ok: true, results };
 }
+
+/* ------------------------------------------------------------------ */
+/* Verifikasi pembayaran RPL (kewenangan Administrator)                */
+/* ------------------------------------------------------------------ */
+
+function revalidatePaymentPaths(applicationId: string) {
+  revalidatePath("/admin");
+  revalidatePath("/admin/pembayaran");
+  revalidatePath("/prodi");
+  revalidatePath("/prodi/pembayaran");
+  revalidatePath("/prodi/asesor");
+  revalidatePath(`/prodi/peserta/${applicationId}`);
+  revalidatePath("/mahasiswa");
+  revalidatePath("/mahasiswa/pembayaran");
+}
+
+export async function verifyPaymentAdminAction(paymentId: string): Promise<void> {
+  const { profile, userId, admin } = await getAdminContext();
+  const { data: payment } = await admin
+    .from("payments")
+    .select("id,application_id,status,application:applications!inner(program_id)")
+    .eq("id", paymentId)
+    .maybeSingle();
+  if (!payment) throw new Error("Bukti pembayaran tidak ditemukan.");
+  if (payment.status !== "SUBMITTED") throw new Error("Bukti pembayaran ini tidak sedang menunggu verifikasi.");
+
+  const { error } = await admin.from("payments").update({
+    status: "VERIFIED",
+    verification_note: null,
+    verified_by: profile.id,
+    verified_at: new Date().toISOString()
+  }).eq("id", paymentId).eq("status", "SUBMITTED");
+  if (error) throw new Error(error.message);
+
+  await audit(userId, "VERIFY_PAYMENT", "payment", paymentId, (payment.application as any)?.program_id, {
+    applicationId: payment.application_id,
+    actor: profile.full_name
+  });
+  revalidatePaymentPaths(payment.application_id);
+}
+
+export async function rejectPaymentAdminAction(paymentId: string, formData: FormData): Promise<void> {
+  const note = String(formData.get("verificationNote") || "").trim();
+  if (!note) throw new Error("Catatan penolakan wajib diisi.");
+  if (note.length > 1000) throw new Error("Catatan penolakan maksimal 1000 karakter.");
+  const { profile, userId, admin } = await getAdminContext();
+  const { data: payment } = await admin
+    .from("payments")
+    .select("id,application_id,status,application:applications!inner(program_id)")
+    .eq("id", paymentId)
+    .maybeSingle();
+  if (!payment) throw new Error("Bukti pembayaran tidak ditemukan.");
+  if (payment.status !== "SUBMITTED") throw new Error("Bukti pembayaran ini tidak sedang menunggu verifikasi.");
+
+  const { error } = await admin.from("payments").update({
+    status: "REJECTED",
+    verification_note: note,
+    verified_by: profile.id,
+    verified_at: new Date().toISOString()
+  }).eq("id", paymentId).eq("status", "SUBMITTED");
+  if (error) throw new Error(error.message);
+
+  await audit(userId, "REJECT_PAYMENT", "payment", paymentId, (payment.application as any)?.program_id, {
+    applicationId: payment.application_id,
+    note,
+    actor: profile.full_name
+  });
+  revalidatePaymentPaths(payment.application_id);
+}

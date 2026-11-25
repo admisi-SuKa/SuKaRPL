@@ -29,8 +29,8 @@ export function ParticipantControls({ applicationId, status, assessors, assignme
     <div className="grid gap-4 xl:grid-cols-2">
       <section className="rpl-card p-5">
         <h2 className="font-black text-[var(--rpl-green-950)]">Plotting Asesor</h2>
-        <p className="mt-1 text-xs text-[var(--muted)]">Tentukan dua asesor berbeda. Plotting baru aktif setelah pembayaran terverifikasi.</p>
-        {!assignment && paymentStatus !== "VERIFIED" && <div className="mt-3 rounded-xl bg-amber-50 p-3 text-xs font-bold text-amber-800"><i className="bi bi-credit-card mr-1" /> Pembayaran belum terverifikasi.</div>}
+        <p className="mt-1 text-xs text-[var(--muted)]">Tentukan dua asesor berbeda. Plotting baru aktif setelah pembayaran diverifikasi Administrator.</p>
+        {!assignment && paymentStatus !== "VERIFIED" && <div className="mt-3 rounded-xl bg-amber-50 p-3 text-xs font-bold text-amber-800"><i className="bi bi-credit-card mr-1" /> Pembayaran belum diverifikasi Administrator.</div>}
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <div><label className="rpl-label">Asesor 1</label><select className="rpl-select" value={a1} disabled={!canAssign} onChange={(e) => setA1(e.target.value)}><option value="">Pilih asesor</option>{assessors.map((a) => <option key={a.id} value={a.id}>{a.full_name} — {a.nip}</option>)}</select></div>
           <div><label className="rpl-label">Asesor 2</label><select className="rpl-select" value={a2} disabled={!canAssign} onChange={(e) => setA2(e.target.value)}><option value="">Pilih asesor</option>{assessors.map((a) => <option key={a.id} value={a.id}>{a.full_name} — {a.nip}</option>)}</select></div>

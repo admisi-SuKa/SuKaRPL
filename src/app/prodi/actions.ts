@@ -252,7 +252,7 @@ export async function saveAssignmentAction(applicationId: string, assessor1Id: s
   const { data: existingAssignment } = await supabase.from("assessor_assignments").select("id").eq("application_id", applicationId).maybeSingle();
   if (!existingAssignment) {
     const { data: payment } = await supabase.from("payments").select("status").eq("application_id", applicationId).maybeSingle();
-    if (payment?.status !== "VERIFIED") return { ok: false, error: "Pembayaran belum terverifikasi. Verifikasi bukti pembayaran sebelum melakukan plotting asesor." };
+    if (payment?.status !== "VERIFIED") return { ok: false, error: "Pembayaran belum diverifikasi Administrator. Minta Admin memverifikasi bukti pembayaran sebelum plotting asesor." };
   }
 
   const assignmentResult = existingAssignment
@@ -368,54 +368,4 @@ export async function reopenYudisiumAction(applicationId: string) {
   return { ok: true };
 }
 
-export async function verifyPaymentAction(paymentId: string): Promise<void> {
-  const { profile, supabase, programId } = await getContext();
-  const { data: payment } = await supabase
-    .from("payments")
-    .select("id,application_id,status,application:applications!inner(program_id)")
-    .eq("id", paymentId)
-    .maybeSingle();
-  if (!payment || (payment.application as any)?.program_id !== programId) throw new Error("Bukti pembayaran tidak ditemukan.");
-  if (payment.status !== "SUBMITTED") throw new Error("Bukti pembayaran ini tidak sedang menunggu verifikasi.");
-
-  const { error } = await supabase.from("payments").update({
-    status: "VERIFIED",
-    verification_note: null,
-    verified_by: profile.id,
-    verified_at: new Date().toISOString()
-  }).eq("id", paymentId).eq("status", "SUBMITTED");
-  if (error) throw new Error(error.message);
-
-  await logAction("VERIFY_PAYMENT", "payment", paymentId, { applicationId: payment.application_id });
-  revalidatePath("/prodi");
-  revalidatePath("/prodi/pembayaran");
-  revalidatePath("/prodi/asesor");
-  revalidatePath(`/prodi/peserta/${payment.application_id}`);
-}
-
-export async function rejectPaymentAction(paymentId: string, formData: FormData): Promise<void> {
-  const note = String(formData.get("verificationNote") || "").trim();
-  if (!note) throw new Error("Catatan penolakan wajib diisi.");
-  const { profile, supabase, programId } = await getContext();
-  const { data: payment } = await supabase
-    .from("payments")
-    .select("id,application_id,status,application:applications!inner(program_id)")
-    .eq("id", paymentId)
-    .maybeSingle();
-  if (!payment || (payment.application as any)?.program_id !== programId) throw new Error("Bukti pembayaran tidak ditemukan.");
-  if (payment.status !== "SUBMITTED") throw new Error("Bukti pembayaran ini tidak sedang menunggu verifikasi.");
-
-  const { error } = await supabase.from("payments").update({
-    status: "REJECTED",
-    verification_note: note,
-    verified_by: profile.id,
-    verified_at: new Date().toISOString()
-  }).eq("id", paymentId).eq("status", "SUBMITTED");
-  if (error) throw new Error(error.message);
-
-  await logAction("REJECT_PAYMENT", "payment", paymentId, { applicationId: payment.application_id, note });
-  revalidatePath("/prodi");
-  revalidatePath("/prodi/pembayaran");
-  revalidatePath("/prodi/asesor");
-  revalidatePath(`/prodi/peserta/${payment.application_id}`);
-}
+// Verifikasi/penolakan pembayaran adalah kewenangan Administrator (lihat src/app/admin/actions.ts).

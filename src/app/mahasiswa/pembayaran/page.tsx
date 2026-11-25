@@ -58,9 +58,9 @@ export default async function ParticipantPaymentPage() {
             <div><div className="text-xs font-black uppercase tracking-wide">Status Pembayaran</div><div className="mt-1 text-lg font-black">{paymentLabels[payment.status] || payment.status}</div><div className="mt-1 text-xs opacity-75">Dikirim {formatDateTime(payment.submitted_at)}</div></div>
             {payment.proof_url && <a href={payment.proof_url} target="_blank" rel="noopener noreferrer" className="rpl-btn rpl-btn-secondary text-xs"><i className="bi bi-box-arrow-up-right" /> Buka Bukti</a>}
           </div>
-          {payment.status === "REJECTED" && payment.verification_note && <div className="mt-4 rounded-xl bg-white/70 p-3 text-sm"><strong>Catatan Prodi:</strong> {payment.verification_note}</div>}
+          {payment.status === "REJECTED" && payment.verification_note && <div className="mt-4 rounded-xl bg-white/70 p-3 text-sm"><strong>Catatan Admin:</strong> {payment.verification_note}</div>}
           {payment.status === "VERIFIED" && <p className="mt-3 text-sm font-bold"><i className="bi bi-check-circle-fill mr-1" /> Pembayaran sudah terverifikasi. Pengajuan dapat diproses ke tahap asesmen.</p>}
-          {payment.status === "SUBMITTED" && <p className="mt-3 text-sm">Bukti pembayaran sedang menunggu pemeriksaan Prodi.</p>}
+          {payment.status === "SUBMITTED" && <p className="mt-3 text-sm">Bukti pembayaran sedang menunggu pemeriksaan Admin.</p>}
         </section>
       )}
 

@@ -31,7 +31,7 @@ export function PaymentForm({ payment }: { payment?: Payment | null }) {
     startTransition(async () => {
       const result = await submitPaymentAction(form);
       if (result.ok) {
-        setMessage({ ok: true, text: "Bukti pembayaran berhasil dikirim dan menunggu verifikasi Prodi." });
+        setMessage({ ok: true, text: "Bukti pembayaran berhasil dikirim dan menunggu verifikasi Admin." });
         router.refresh();
       } else {
         setMessage({ ok: false, text: result.error || "Gagal mengirim bukti pembayaran." });
@@ -69,7 +69,7 @@ export function PaymentForm({ payment }: { payment?: Payment | null }) {
           <i className="bi bi-link-45deg rpl-field-icon" aria-hidden="true" />
           <input id="proofUrl" type="url" className="rpl-input rpl-input-with-icon" required placeholder="https://drive.google.com/..." value={form.proofUrl} onChange={(e) => setForm({ ...form, proofUrl: e.target.value })} />
         </div>
-        <p className="mt-1.5 text-xs leading-5 text-[var(--muted)]">Pastikan link dapat dibuka oleh Prodi. Jika memakai Google Drive/OneDrive, atur izin akses sesuai ketentuan institusi.</p>
+        <p className="mt-1.5 text-xs leading-5 text-[var(--muted)]">Pastikan link dapat dibuka oleh Admin. Jika memakai Google Drive/OneDrive, atur izin akses sesuai ketentuan institusi.</p>
       </div>
 
       <div>

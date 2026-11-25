@@ -2,9 +2,8 @@ import Link from "next/link";
 import { requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { formatDate, formatDateTime } from "@/lib/utils";
-import { rejectPaymentAction, verifyPaymentAction } from "../actions";
 
-export const metadata = { title: "Verifikasi Pembayaran" };
+export const metadata = { title: "Status Pembayaran" };
 
 const labels: Record<string, string> = {
   SUBMITTED: "Menunggu Verifikasi",
@@ -51,8 +50,8 @@ export default async function ProdiPaymentPage() {
     <div className="space-y-5">
       <section>
         <div className="text-xs font-black uppercase tracking-[.12em] text-[var(--rpl-orange)]">Program Studi</div>
-        <h1 className="mt-1 text-2xl sm:text-3xl font-black text-[var(--rpl-green-950)]">Verifikasi Pembayaran</h1>
-        <p className="mt-2 text-sm text-[var(--muted)]">Periksa link bukti pembayaran mahasiswa sebelum pengajuan diplot ke asesor.</p>
+        <h1 className="mt-1 text-2xl sm:text-3xl font-black text-[var(--rpl-green-950)]">Status Pembayaran</h1>
+        <p className="mt-2 text-sm text-[var(--muted)]">Pantau status pembayaran mahasiswa. Verifikasi dilakukan oleh Administrator; plotting asesor terbuka setelah pembayaran berstatus Terverifikasi.</p>
       </section>
 
       <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
@@ -96,17 +95,6 @@ export default async function ProdiPaymentPage() {
               {payment?.student_note && <div className="mt-3 rounded-xl bg-[#f7faf9] p-3 text-sm"><strong>Catatan mahasiswa:</strong> {payment.student_note}</div>}
               {payment?.verification_note && payment.status === "REJECTED" && <div className="mt-3 rounded-xl bg-red-50 p-3 text-sm text-red-800"><strong>Catatan penolakan:</strong> {payment.verification_note}</div>}
 
-              {payment?.status === "SUBMITTED" && (
-                <div className="mt-4 grid gap-3 border-t border-[var(--line)] pt-4 lg:grid-cols-[auto_1fr] lg:items-end">
-                  <form action={verifyPaymentAction.bind(null, payment.id)}>
-                    <button type="submit" className="rpl-btn rpl-btn-primary w-full lg:w-auto"><i className="bi bi-check-circle" /> Verifikasi Pembayaran</button>
-                  </form>
-                  <form action={rejectPaymentAction.bind(null, payment.id)} className="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-end">
-                    <div><label className="rpl-label" htmlFor={`reject-${payment.id}`}>Catatan jika ditolak</label><input id={`reject-${payment.id}`} name="verificationNote" className="rpl-input" required maxLength={1000} placeholder="Contoh: link tidak dapat diakses" /></div>
-                    <button type="submit" className="rpl-btn rpl-btn-danger"><i className="bi bi-x-circle" /> Tolak</button>
-                  </form>
-                </div>
-              )}
             </article>
           );
         })}

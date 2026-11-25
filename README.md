@@ -24,11 +24,17 @@ Aplikasi ini merupakan rancangan ulang dari Portal RPL berbasis Google Apps Scri
 - Master Mata Kuliah dan mode **OBE / Non OBE**.
 - Master CPMK untuk mata kuliah OBE.
 - Membuat akun asesor individual.
-- Plotting **Asesor 1 + Asesor 2**.
+- Memantau status pembayaran mahasiswa (hanya-lihat).
+- Plotting **Asesor 1 + Asesor 2** (terbuka setelah pembayaran diverifikasi Admin).
 - Yudisium YA/TIDAK per mata kuliah.
 - Validasi kelengkapan nilai kedua asesor sebelum finalisasi.
 - Membatalkan finalisasi selama mahasiswa belum mengirim tanggapan.
 - Berita Acara PDF otomatis berdasarkan snapshot FINAL.
+
+### Administrator
+- Mengelola akun calon mahasiswa, import data, dan semua pengguna.
+- **Verifikasi / penolakan pembayaran** (`/admin/pembayaran`) lintas program studi, tercatat di Audit Log.
+- Audit Log aktivitas.
 
 ### Asesor
 - Hanya melihat peserta yang diplot kepadanya.

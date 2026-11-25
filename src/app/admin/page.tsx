@@ -36,8 +36,9 @@ export default async function AdminDashboard() {
         <StatCard icon="bi-file-earmark-check" label="Pengajuan final" value={appRows.filter((x: any) => x.status === "FINAL").length} />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid gap-4 lg:grid-cols-4">
         <Link href="/admin/mahasiswa" className="rpl-card p-5 transition hover:-translate-y-0.5 hover:shadow-md"><div className="text-2xl text-[var(--rpl-green-800)]"><i className="bi bi-person-plus" /></div><h2 className="mt-3 font-black">Kelola Calon Mahasiswa</h2><p className="mt-2 text-sm leading-6 text-[var(--muted)]">Tambah, edit, aktif/nonaktifkan, dan reset password mahasiswa.</p></Link>
+        <Link href="/admin/pembayaran" className="rpl-card p-5 transition hover:-translate-y-0.5 hover:shadow-md"><div className="text-2xl text-[var(--rpl-orange)]"><i className="bi bi-receipt" /></div><h2 className="mt-3 font-black">Verifikasi Pembayaran</h2><p className="mt-2 text-sm leading-6 text-[var(--muted)]">Periksa bukti pembayaran mahasiswa. Plotting asesor baru terbuka setelah terverifikasi.</p></Link>
         <Link href="/admin/pengguna" className="rpl-card p-5 transition hover:-translate-y-0.5 hover:shadow-md"><div className="text-2xl text-[var(--rpl-orange)]"><i className="bi bi-people-fill" /></div><h2 className="mt-3 font-black">Semua Pengguna</h2><p className="mt-2 text-sm leading-6 text-[var(--muted)]">Kelola Mahasiswa, Asesor, Prodi, dan Administrator pada satu tabel.</p></Link>
         <Link href="/admin/audit" className="rpl-card p-5 transition hover:-translate-y-0.5 hover:shadow-md"><div className="text-2xl text-[var(--rpl-green-800)]"><i className="bi bi-clock-history" /></div><h2 className="mt-3 font-black">Audit Aktivitas</h2><p className="mt-2 text-sm leading-6 text-[var(--muted)]">Lihat jejak perubahan administratif yang dilakukan pengguna sistem.</p></Link>
       </div>
@@ -46,7 +47,7 @@ export default async function AdminDashboard() {
         <h2 className="font-black text-[var(--rpl-green-950)]">Ringkasan Operasional</h2>
         <div className="mt-4 grid gap-3 sm:grid-cols-3">
           <div className="rounded-xl bg-[#f3f8f6] p-4"><div className="text-xs font-bold text-[var(--muted)]">Pengajuan dalam proses</div><div className="mt-1 text-2xl font-black">{appRows.filter((x: any) => ["SUBMITTED","RETURNED","ASSESSMENT","YUDISIUM"].includes(x.status)).length}</div></div>
-          <div className="rounded-xl bg-[#fff7ed] p-4"><div className="text-xs font-bold text-[var(--muted)]">Pembayaran menunggu</div><div className="mt-1 text-2xl font-black">{paymentRows.filter((x: any) => x.status === "SUBMITTED").length}</div></div>
+          <Link href="/admin/pembayaran" className="rounded-xl bg-[#fff7ed] p-4 transition hover:shadow-md"><div className="text-xs font-bold text-[var(--muted)]">Pembayaran menunggu verifikasi</div><div className="mt-1 text-2xl font-black">{paymentRows.filter((x: any) => x.status === "SUBMITTED").length}</div></Link>
           <div className="rounded-xl bg-[#ecfdf5] p-4"><div className="text-xs font-bold text-[var(--muted)]">Pembayaran terverifikasi</div><div className="mt-1 text-2xl font-black">{paymentRows.filter((x: any) => x.status === "VERIFIED").length}</div></div>
         </div>
       </section>
